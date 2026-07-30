@@ -17,7 +17,7 @@ A production-quality Python CLI tool for high-quality AI-powered web novel trans
 
 ```bash
 # Clone and install
-git clone <repo-url> && cd noveltrans
+git clone https://github.com/Ethanz0/noveltrans.git && cd noveltrans
 uv sync
 
 # Set up API key
