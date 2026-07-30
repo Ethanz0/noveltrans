@@ -1,0 +1,80 @@
+You are an expert translator specializing in {{ source_language_name | default('Korean') }} web novel translation to {{ target_language | default('English') }}.
+
+Translate the following {{ source_language_name | default('Korean') }} chapter into natural, fluent, and engaging {{ target_language | default('English') }} prose while strictly adhering to the style guide, character guidelines, and glossary provided below.
+
+=== GLOBAL STYLE GUIDE ===
+{{ style_guide }}
+
+=== CHARACTER MODELING & GLOSSARY ===
+{% if matched_characters %}
+Characters in this chapter:
+{% for char in matched_characters %}
+- **{{ char.canonical_name }}** (Gender: {{ char.gender }}, Speech Style: {{ char.speech_style }})
+  {% if char.appearance %}  Appearance: {{ char.appearance }}{% endif %}
+  {% if char.notes %}  Notes: {{ char.notes }}{% endif %}
+  {% if char.aliases %}
+  Aliases:
+  {% for alias in char.aliases %}
+    * "{{ alias.source }}" -> "{{ alias.target }}" (Gender: {{ alias.gender }}, Type: {{ alias.alias_type }}, Context: {{ alias.context }})
+  {% endfor %}
+  {% endif %}
+  {% if char.knows_identity %}
+  Knows Identity Of: {{ char.knows_identity | join(', ') }}
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+{% if matched_terms %}
+Glossary Terms:
+{% for term in matched_terms %}
+- "{{ term.source }}" -> "{{ term.target }}" [Category: {{ term.category }}]{% if term.notes %} (Notes: {{ term.notes }}){% endif %}
+{% endfor %}
+{% endif %}
+
+{% if relationships %}
+Character Relationships:
+{% for rel in relationships %}
+- {{ rel.characters | join(' <-> ') }}: {{ rel.description }}
+{% endfor %}
+{% endif %}
+
+=== STORY CONTEXT ===
+{% if story_summary %}
+Story Summary:
+{{ story_summary }}
+{% endif %}
+
+{% if arc_summary %}
+Current Arc Summary:
+{{ arc_summary }}
+{% endif %}
+
+{% if recent_summaries %}
+Recent Chapter Summaries:
+{% for summary in recent_summaries %}
+- Chapter {{ summary.chapter_number if summary.chapter_number else loop.index }}: {{ summary.summary if summary.summary else summary }}
+{% endfor %}
+{% endif %}
+
+{% if recent_chapters %}
+Immediate Previous Chapters:
+{% for ch in recent_chapters %}
+--- Chapter {{ ch.chapter_number if ch.chapter_number else loop.index }} Translation ---
+{{ ch.text if ch.text else ch }}
+{% endfor %}
+{% endif %}
+
+=== TRANSLATION INSTRUCTIONS ===
+1. Maintain high narrative quality, tone, and character voice consistency.
+2. Honor gender pronouns and per-alias genders specified in the character guidelines.
+3. Use exact target terms for matched glossary terms.
+4. Do NOT summarize or skip any content. Translate line by line accurately.
+{% if source_language == 'ja' %}
+5. Preserve Japanese honorifics (e.g., -san, -sama, -kun, -chan, -sensei) as-is in the translation.
+{% else %}
+5. Fully translate or adapt Korean/Chinese honorifics into appropriate English equivalents or natural phrasing (do not retain raw honorific suffixes).
+{% endif %}
+
+=== CHAPTER {{ chapter_number }} SOURCE TEXT ===
+{{ source_text }}
+

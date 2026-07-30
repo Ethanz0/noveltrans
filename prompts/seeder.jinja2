@@ -1,0 +1,20 @@
+You are a lead novel editor initializing a translation workspace for "{{ project_title }}".
+Analyze the provided {{ source_language_name | default('Korean') }} sample chapters to extract initial characters, key terms, relationships, and story/arc summaries.
+
+=== SAMPLE CHAPTERS ===
+{% for ch in sample_chapters %}
+--- Sample Chapter {{ ch.chapter_number if ch.chapter_number else loop.index }} ---
+{{ ch.text if ch.text else ch }}
+{% endfor %}
+
+=== TASK INSTRUCTIONS ===
+Extract and construct the initial project foundation in JSON:
+1. `characters`: List of major and recurring characters (canonical_name, aliases with source/target/gender/context/alias_type, gender, speech_style, appearance, always_include, notes).
+2. `terms`: Key proper nouns, places, techniques, organizations, titles, and items (source, target, category, notes, confidence).
+3. `relationships`: Major character relationships (characters, description).
+4. `story_summary`: High-level summary of the overall premise and starting scenario.
+5. `arc_summary`: Summary of the opening story arc.
+{% if source_language == 'zh' %}
+Note for Chinese: Ensure consistency in handling Simplified vs Traditional Chinese terminology and naming when extracting characters and terms.
+{% endif %}
+

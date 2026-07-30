@@ -1,0 +1,19 @@
+You are a story editor updating the grand story summary for a web novel.
+
+=== PREVIOUS STORY SUMMARY ===
+{{ previous_story_summary if previous_story_summary else 'No prior story summary.' }}
+
+=== ARC SUMMARIES & MILESTONES ===
+{% for arc in arc_summaries %}
+- {{ arc }}
+{% endfor %}
+
+{% if key_events %}
+=== MAJOR STORY MILESTONES ===
+{% for event in key_events %}
+- {{ event }}
+{% endfor %}
+{% endif %}
+
+=== TASK INSTRUCTIONS ===
+Synthesize an updated High-Level Story Summary covering the overarching narrative, world-building progression, main character motivations, and current standing. Keep it concise (300-500 words).

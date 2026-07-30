@@ -1,0 +1,17 @@
+You are a story editor updating the narrative arc summary for a web novel.
+
+=== PREVIOUS ARC SUMMARY ===
+{{ previous_arc_summary if previous_arc_summary else 'No prior arc summary.' }}
+
+=== RECENT CHAPTER SUMMARIES ===
+{% for summary in recent_chapter_summaries %}
+- Chapter {{ summary.chapter_number if summary.chapter_number else loop.index }}: {{ summary.summary if summary.summary else summary }}
+{% endfor %}
+
+=== SIGNIFICANT RECENT EVENTS ===
+{% for event in significant_events %}
+- [{{ event.event_type }}] {{ event.description }} (Affects: {{ event.affects_characters | join(', ') }})
+{% endfor %}
+
+=== TASK INSTRUCTIONS ===
+Synthesize an updated Arc Summary capturing the current storyline, character goals, ongoing conflicts, and trajectory. Keep it concise (200-400 words).

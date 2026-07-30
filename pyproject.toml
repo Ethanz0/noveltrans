@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "noveltrans"
+version = "0.1.0"
+description = "AI-powered Korean web novel translation CLI tool with multi-tier persistent context"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15",
+    "rich>=14",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.8",
+    "openai>=1.80",
+    "jinja2>=3.1",
+    "structlog>=25",
+    "ebooklib>=0.18",
+    "ahocorasick-rs>=0.22",
+    "rapidfuzz>=3.12",
+    "python-dotenv>=1.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=1",
+    "ruff>=0.12",
+    "basedpyright>=1.29",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "TCH"]
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["src"]
+
+[project.scripts]
+noveltrans = "noveltrans.cli.app:app"

@@ -1,0 +1,28 @@
+You are an expert web novel analyst and quality assurance editor.
+Analyze the following translated chapter alongside its source {{ source_language_name | default('Korean') }} text.
+
+=== CHAPTER {{ chapter_number }} SOURCE TEXT ===
+{{ source_text }}
+
+=== CHAPTER {{ chapter_number }} TRANSLATED TEXT ===
+{{ translated_text }}
+
+=== EXISTING GLOSSARY ===
+Existing Character Canonical Names: {{ existing_characters | join(', ') if existing_characters else 'None' }}
+Existing Glossary Term Sources: {{ existing_terms | join(', ') if existing_terms else 'None' }}
+
+=== TASK INSTRUCTIONS ===
+Provide a comprehensive post-translation analysis in valid JSON matching the following schema:
+1. `summary`: Concise 2-4 sentence summary of key plot developments in this chapter.
+2. `key_events`: List of key plot points.
+3. `characters_present`: Characters who appeared in this chapter.
+4. `new_characters`: Newly introduced characters needing glossary entries (canonical_name, aliases, gender, speech_style, appearance, notes).
+5. `new_terms`: Newly introduced terms needing glossary entries (source, target, category, notes, confidence).
+6. `character_updates`: Updates to existing character identity knowledge, aliases, or traits.
+7. `relationship_updates`: New or modified relationships between characters.
+8. `significant_events`: Major events with `event_type` ("identity_reveal", "power_reveal", "relationship_change", "new_location", "major_conflict", "arc_transition"), `description`, `affects_characters`, and `triggers_arc_update` (boolean).
+9. `qa_flags`: List of potential translation issues (untranslated {{ source_language_name | default('Korean') }}, consistency issues, name mismatches).
+{% if source_language == 'zh' %}
+Note for Chinese: Ensure consistency in handling Simplified vs Traditional Chinese terminology and naming.
+{% endif %}
+
