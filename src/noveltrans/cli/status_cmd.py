@@ -72,18 +72,16 @@ def status_cmd(
         char_count = 0
         term_count = 0
 
-    pending_path = project_dir / config.state_dir / "pending_terms.json"
-    pending_count = 0
-    if pending_path.exists():
-        try:
-            data = json.loads(pending_path.read_text(encoding="utf-8"))
-            pending_count = len(data) if isinstance(data, list) else 0
-        except Exception:
-            pending_count = 0
+    unreviewed_count = 0
+    try:
+        unreviewed_count += sum(1 for c in glossary.characters if not c.reviewed)
+        unreviewed_count += sum(1 for t in glossary.terms if not t.reviewed)
+    except Exception:
+        pass
 
     # Render header panel
     lang_text = f"{config.source_language.upper()} -> {config.target_language.upper()}"
-    gloss_text = f"{char_count} character(s), {term_count} term(s), {pending_count} pending term(s)"
+    gloss_text = f"{char_count} character(s), {term_count} term(s), {unreviewed_count} unreviewed"
     header_text = (
         f"[bold cyan]Project:[/] {config.title}\n"
         f"[bold cyan]Language:[/] {lang_text}\n"

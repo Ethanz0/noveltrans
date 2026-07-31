@@ -118,7 +118,6 @@ class GlossarySeeder:
             "saving_seed_result",
             project_dir=str(self.project_dir),
             glossary_path=str(manager.glossary_path),
-            pending_path=str(manager.pending_path),
         )
 
         # Merge characters
@@ -126,6 +125,7 @@ class GlossarySeeder:
         char_added = 0
         char_updated = 0
         for char in seed_result.characters:
+            char.reviewed = False
             if char.id not in existing_char_ids:
                 glossary.characters.append(char)
                 existing_char_ids.add(char.id)
@@ -142,6 +142,7 @@ class GlossarySeeder:
         terms_added = 0
         terms_updated = 0
         for term in seed_result.terms:
+            term.reviewed = False
             if term.source not in existing_term_sources:
                 glossary.terms.append(term)
                 existing_term_sources.add(term.source)

@@ -27,6 +27,7 @@ class AnalysisResult(BaseModel):
     new_characters: list[Character] = Field(default_factory=list)
     new_terms: list[GlossaryTerm] = Field(default_factory=list)
     character_updates: list[dict[str, Any]] = Field(default_factory=list)
+    term_updates: list[dict[str, Any]] = Field(default_factory=list)
     relationship_updates: list[Relationship] = Field(default_factory=list)
     significant_events: list[SignificantEvent] = Field(default_factory=list)
     qa_flags: list[str] = Field(default_factory=list)
@@ -67,7 +68,7 @@ class SeedResult(BaseModel):
 class TermAlternativesResult(BaseModel):
     """Result from the term alternatives generation LLM step."""
 
-    alternatives: list[str] = Field(default_factory=list)
+    results: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class ResponseParser(Protocol):

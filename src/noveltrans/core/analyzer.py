@@ -149,11 +149,30 @@ class ChapterAnalyzer:
                                     alias = CharacterAlias(**a_data)
                                     if not any(ea.source == alias.source and ea.target == alias.target for ea in char.aliases):
                                         char.aliases.append(alias)
+                                        char.reviewed = False
                                 except Exception:
                                     pass
                     updated = True
             if updated:
                 glossary.characters = list(char_map.values())
+                self.glossary_manager.save_glossary(glossary)
+
+        # 5.5 Process term updates
+        if analysis.term_updates:
+            glossary = self.glossary_manager.load_glossary()
+            term_map = {t.source: t for t in glossary.terms}
+            updated = False
+            for update in analysis.term_updates:
+                source = update.get("source")
+                if source and source in term_map:
+                    term = term_map[source]
+                    if "category" in update:
+                        term.category = str(update["category"])
+                    if "notes" in update:
+                        term.notes = str(update["notes"])
+                    updated = True
+            if updated:
+                glossary.terms = list(term_map.values())
                 self.glossary_manager.save_glossary(glossary)
 
         # 6. Save chapter summary to state/summaries/

@@ -238,22 +238,18 @@ class PromptRenderer:
 
     def render_term_alternatives(
         self,
-        source_term: str,
-        current_translation: str,
-        category: str,
+        items: list[dict[str, str]],
         source_language: str = "ko",
         use_structured_output: bool = False,
         **kwargs: Any,
     ) -> str:
-        """Render term alternatives prompt template."""
+        """Render term alternatives prompt template for a batch of items."""
         src_lang = kwargs.pop("source_language", source_language).lower()
         src_lang_name = kwargs.pop(
             "source_language_name", self.get_source_language_name(src_lang)
         )
         context: dict[str, Any] = {
-            "source_term": source_term,
-            "current_translation": current_translation,
-            "category": category,
+            "items": items,
             "source_language": src_lang,
             "source_language_name": src_lang_name,
         }

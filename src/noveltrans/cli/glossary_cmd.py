@@ -177,63 +177,68 @@ def glossary_review(
     llm_client = OpenAIClient() if not skip_llm else None
     prompt_renderer = PromptRenderer() if not skip_llm else None
 
-    # Process terms
+    items_to_review = []
     for term in unreviewed_terms:
-        console.print(f"\n[bold yellow]Term:[/] {term.source} -> {term.target}")
-        console.print(f"[italic]Category:[/] {term.category}")
-        
-        alternatives = []
-        if llm_client and prompt_renderer:
-            with console.status("Generating alternatives..."):
-                prompt = prompt_renderer.render_term_alternatives(
-                    source_term=term.source,
-                    current_translation=term.target,
-                    category=term.category,
-                )
-                try:
-                    res = asyncio.run(llm_client.parse_term_alternatives(prompt))
-                    alternatives = res.alternatives
-                except Exception as e:
-                    console.print(f"[red]Failed to generate alternatives: {e}[/]")
-        
-        for i, alt in enumerate(alternatives, 1):
-            console.print(f"  [[cyan]{i}[/]] {alt}")
-            
-        choice = Prompt.ask(
-            "Select alternative [Enter to keep current, 1/2/3, or type custom]",
-            default="",
-            show_default=False
-        )
-        
-        if choice:
-            if choice.isdigit() and 1 <= int(choice) <= len(alternatives):
-                term.target = alternatives[int(choice) - 1]
-            else:
-                term.target = choice
-        
-        term.reviewed = True
-        console.print(f"[green]Saved as:[/] {term.target}")
-
-    # Process characters
+        items_to_review.append({
+            "source_term": term.source,
+            "current_translation": term.target,
+            "category": term.category,
+            "type": "term",
+            "obj": term,
+        })
     for char in unreviewed_chars:
-        console.print(f"\n[bold magenta]Character:[/] {char.canonical_name} (ID: {char.id})")
-        console.print(f"[italic]Gender:[/] {char.gender} | [italic]Speech:[/] {char.speech_style}")
-        
-        alternatives = []
-        if llm_client and prompt_renderer:
-            with console.status("Generating alternatives..."):
-                prompt = prompt_renderer.render_term_alternatives(
-                    source_term=char.id,
-                    current_translation=char.canonical_name,
-                    category="Character Name",
-                )
+        items_to_review.append({
+            "source_term": char.id,
+            "current_translation": char.canonical_name,
+            "category": "Character Name",
+            "type": "char",
+            "obj": char,
+        })
+        for alias in char.aliases:
+            items_to_review.append({
+                "source_term": alias.source,
+                "current_translation": alias.target,
+                "category": f"Character Alias ({char.canonical_name})",
+                "type": "alias",
+                "obj": alias,
+                "char": char,
+            })
+
+    alternatives_map = {}
+    if llm_client and prompt_renderer and items_to_review:
+        with console.status(f"Generating alternatives for {len(items_to_review)} items..."):
+            chunk_size = 20
+            for i in range(0, len(items_to_review), chunk_size):
+                chunk = items_to_review[i:i + chunk_size]
+                prompt = prompt_renderer.render_term_alternatives(items=chunk)
                 try:
                     res = asyncio.run(llm_client.parse_term_alternatives(prompt))
-                    alternatives = res.alternatives
+                    if res and res.results:
+                        alternatives_map.update(res.results)
                 except Exception as e:
-                    console.print(f"[red]Failed to generate alternatives: {e}[/]")
+                    console.print(f"[red]Failed to generate alternatives for chunk: {e}[/]")
+
+    for item in items_to_review:
+        is_char = item["type"] == "char"
+        is_alias = item["type"] == "alias"
+        if is_char:
+            char = item["obj"]
+            console.print(f"\n[bold magenta]Character:[/] {char.canonical_name} (ID: {char.id})")
+            console.print(f"[italic]Gender:[/] {char.gender} | [italic]Speech:[/] {char.speech_style}")
+        elif is_alias:
+            alias = item["obj"]
+            char = item["char"]
+            console.print(f"\n[bold magenta]Character Alias for {char.canonical_name}:[/] {alias.source} -> {alias.target}")
+            console.print(f"[italic]Context:[/] {alias.context}")
+        else:
+            term = item["obj"]
+            console.print(f"\n[bold yellow]Term:[/] {term.source} -> {term.target}")
+            console.print(f"[italic]Category:[/] {term.category}")
         
-        for i, alt in enumerate(alternatives, 1):
+        source_key = item["source_term"]
+        alts = alternatives_map.get(source_key, [])
+
+        for i, alt in enumerate(alts, 1):
             console.print(f"  [[cyan]{i}[/]] {alt}")
             
         choice = Prompt.ask(
@@ -243,13 +248,19 @@ def glossary_review(
         )
         
         if choice:
-            if choice.isdigit() and 1 <= int(choice) <= len(alternatives):
-                char.canonical_name = alternatives[int(choice) - 1]
+            if choice.isdigit() and 1 <= int(choice) <= len(alts):
+                new_val = alts[int(choice) - 1]
             else:
-                char.canonical_name = choice
+                new_val = choice
+                
+            if is_char:
+                item["obj"].canonical_name = new_val
+            else:
+                item["obj"].target = new_val
         
-        char.reviewed = True
-        console.print(f"[green]Saved as:[/] {char.canonical_name}")
+        if not is_alias:
+            item["obj"].reviewed = True
+        console.print(f"[green]Saved as:[/] {item['obj'].canonical_name if is_char else item['obj'].target}")
 
     manager.save_glossary(glossary)
     console.print("\n[bold green]Review complete! Saved to glossary.json.[/]")
