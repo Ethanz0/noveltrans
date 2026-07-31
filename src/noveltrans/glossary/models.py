@@ -13,6 +13,7 @@ class CharacterAlias(BaseModel):
     gender: str = "unknown"
     context: str = ""
     alias_type: str = "name"
+    reviewed: bool = True
 
 
 class Character(BaseModel):

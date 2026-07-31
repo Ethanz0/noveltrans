@@ -132,6 +132,8 @@ class PromptRenderer:
         source_text: str = "",
         sample_chapters: list[Any] | None = None,
         project_title: str = "",
+        existing_characters: list[str] | None = None,
+        existing_terms: list[str] | None = None,
         source_language: str = "ko",
         use_structured_output: bool = False,
         **kwargs: Any,
@@ -145,6 +147,8 @@ class PromptRenderer:
         context: dict[str, Any] = {
             "sample_chapters": chaps,
             "project_title": project_title,
+            "existing_characters": existing_characters or [],
+            "existing_terms": existing_terms or [],
             "source_text": source_text,
             "source_language": src_lang,
             "source_language_name": src_lang_name,

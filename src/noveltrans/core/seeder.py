@@ -53,7 +53,23 @@ class GlossarySeeder:
             ch_count = 1
 
         if self.prompt_renderer is not None:
-            prompt = self.prompt_renderer.render_seeder(source_text)
+            existing_chars = []
+            existing_terms = []
+            if self.project_dir is not None:
+                try:
+                    from noveltrans.glossary.manager import GlossaryManager
+                    mgr = GlossaryManager(self.project_dir)
+                    gloss = mgr.load_glossary()
+                    existing_chars = [c.canonical_name for c in gloss.characters]
+                    existing_terms = [t.source for t in gloss.terms]
+                except Exception:
+                    pass
+
+            prompt = self.prompt_renderer.render_seeder(
+                source_text=source_text,
+                existing_characters=existing_chars,
+                existing_terms=existing_terms,
+            )
         else:
             prompt = (
                 f"# Glossary & Story Seeder\nExtract initial characters and terms.\n\n"
@@ -126,14 +142,23 @@ class GlossarySeeder:
         char_updated = 0
         for char in seed_result.characters:
             char.reviewed = False
+            for alias in char.aliases:
+                alias.reviewed = False
             if char.id not in existing_char_ids:
                 glossary.characters.append(char)
                 existing_char_ids.add(char.id)
                 char_added += 1
             else:
-                for idx, existing_char in enumerate(glossary.characters):
+                for existing_char in glossary.characters:
                     if existing_char.id == char.id:
-                        glossary.characters[idx] = char
+                        if char.notes:
+                            existing_char.notes = char.notes
+                        if char.appearance:
+                            existing_char.appearance = char.appearance
+                        for alias in char.aliases:
+                            if not any(ea.source == alias.source and ea.target == alias.target for ea in existing_char.aliases):
+                                alias.reviewed = False
+                                existing_char.aliases.append(alias)
                         char_updated += 1
                         break
 
@@ -148,9 +173,10 @@ class GlossarySeeder:
                 existing_term_sources.add(term.source)
                 terms_added += 1
             else:
-                for idx, existing_term in enumerate(glossary.terms):
+                for existing_term in glossary.terms:
                     if existing_term.source == term.source:
-                        glossary.terms[idx] = term
+                        if term.notes:
+                            existing_term.notes = term.notes
                         terms_updated += 1
                         break
 

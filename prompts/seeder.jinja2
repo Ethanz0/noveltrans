@@ -7,10 +7,14 @@ Analyze the provided {{ source_language_name | default('Korean') }} sample chapt
 {{ ch.text if ch.text else ch }}
 {% endfor %}
 
+=== EXISTING GLOSSARY ===
+Existing Character Canonical Names: {{ existing_characters | join(', ') if existing_characters else 'None' }}
+Existing Glossary Term Sources: {{ existing_terms | join(', ') if existing_terms else 'None' }}
+
 === TASK INSTRUCTIONS ===
 Extract and construct the initial project foundation in JSON format containing the following:
-1. `characters`: List of major and recurring characters (canonical_name, aliases with source/target/gender/context/alias_type, gender, speech_style, appearance, always_include, notes). IMPORTANT: You must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name").
-2. `terms`: Key proper nouns, places, techniques, organizations, titles, and items (source, target, category, notes, confidence).
+1. `characters`: List of major and recurring characters (canonical_name, aliases with source/target/gender/context/alias_type, gender, speech_style, appearance, always_include, notes). IMPORTANT: You must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name"). If the character is already in the Existing Character Canonical Names list, make sure to reuse the same canonical name and focus on extracting new aliases or adding to their notes.
+2. `terms`: Key proper nouns, places, techniques, organizations, titles, and items (source, target, category, notes, confidence). If the term is already in the Existing Glossary Term Sources list, reuse the same source and only include it if you are adding significant new notes or context.
 3. `relationships`: Major character relationships (characters, description).
 4. `story_summary`: High-level summary of the overall premise and starting scenario.
 5. `arc_summary`: Summary of the opening story arc.

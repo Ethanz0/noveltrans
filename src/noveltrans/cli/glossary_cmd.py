@@ -166,7 +166,7 @@ def glossary_review(
         raise typer.Exit(code=1)
 
     unreviewed_terms = [t for t in glossary.terms if not t.reviewed]
-    unreviewed_chars = [c for c in glossary.characters if not c.reviewed]
+    unreviewed_chars = [c for c in glossary.characters if not c.reviewed or any(not a.reviewed for a in c.aliases)]
 
     if not unreviewed_terms and not unreviewed_chars:
         console.print("[bold green]All glossary terms and characters are already reviewed![/]")
@@ -187,22 +187,24 @@ def glossary_review(
             "obj": term,
         })
     for char in unreviewed_chars:
-        items_to_review.append({
-            "source_term": char.id,
-            "current_translation": char.canonical_name,
-            "category": "Character Name",
-            "type": "char",
-            "obj": char,
-        })
-        for alias in char.aliases:
+        if not char.reviewed:
             items_to_review.append({
-                "source_term": alias.source,
-                "current_translation": alias.target,
-                "category": f"Character Alias ({char.canonical_name})",
-                "type": "alias",
-                "obj": alias,
-                "char": char,
+                "source_term": char.id,
+                "current_translation": char.canonical_name,
+                "category": "Character Name",
+                "type": "char",
+                "obj": char,
             })
+        for alias in char.aliases:
+            if not alias.reviewed:
+                items_to_review.append({
+                    "source_term": alias.source,
+                    "current_translation": alias.target,
+                    "category": f"Character Alias ({char.canonical_name})",
+                    "type": "alias",
+                    "obj": alias,
+                    "char": char,
+                })
 
     alternatives_map = {}
     if llm_client and prompt_renderer and items_to_review:
@@ -258,8 +260,7 @@ def glossary_review(
             else:
                 item["obj"].target = new_val
         
-        if not is_alias:
-            item["obj"].reviewed = True
+        item["obj"].reviewed = True
         console.print(f"[green]Saved as:[/] {item['obj'].canonical_name if is_char else item['obj'].target}")
 
     manager.save_glossary(glossary)

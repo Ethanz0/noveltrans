@@ -108,6 +108,8 @@ class ChapterAnalyzer:
         # 2. Commit new characters to glossary
         for char in analysis.new_characters:
             char.reviewed = False
+            for alias in char.aliases:
+                alias.reviewed = False
             self.glossary_manager.add_character(char)
 
         # 4. Commit relationship updates
@@ -148,8 +150,8 @@ class ChapterAnalyzer:
                                 try:
                                     alias = CharacterAlias(**a_data)
                                     if not any(ea.source == alias.source and ea.target == alias.target for ea in char.aliases):
+                                        alias.reviewed = False
                                         char.aliases.append(alias)
-                                        char.reviewed = False
                                 except Exception:
                                     pass
                     updated = True
