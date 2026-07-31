@@ -149,7 +149,7 @@ class ChapterAnalyzer:
                             if isinstance(a_data, dict):
                                 try:
                                     alias = CharacterAlias(**a_data)
-                                    if not any(ea.source == alias.source and ea.target == alias.target for ea in char.aliases):
+                                    if not any(ea.source == alias.source for ea in char.aliases):
                                         alias.reviewed = False
                                         char.aliases.append(alias)
                                 except Exception:

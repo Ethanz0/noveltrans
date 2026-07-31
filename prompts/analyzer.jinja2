@@ -17,7 +17,7 @@ Provide a comprehensive post-translation analysis in JSON format containing the 
 2. `key_events`: List of key plot points.
 3. `characters_present`: Characters who appeared in this chapter.
 4. `new_characters`: Newly introduced characters needing glossary entries (canonical_name, aliases, gender, speech_style, appearance, notes). IMPORTANT: In the aliases list, you must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name").
-5. `new_terms`: Newly introduced terms needing glossary entries (source, target, category, notes, confidence).
+5. `new_terms`: Newly introduced terms needing glossary entries (source, target, category, notes, confidence). Only extract significant terms (e.g., important artifacts, major factions, key locations) that are highly likely to appear again in the future. Do not extract one-off terms or generic items.
 6. `character_updates`: Updates to existing character identity knowledge, aliases, or traits.
 7. `term_updates`: Updates to existing general terms if significant new lore or context is revealed (source, category, notes).
 8. `relationship_updates`: New or modified relationships between characters.

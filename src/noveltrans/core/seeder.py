@@ -138,25 +138,31 @@ class GlossarySeeder:
 
         # Merge characters
         existing_char_ids = {c.id for c in glossary.characters}
+        existing_char_names = {c.canonical_name.lower(): c.id for c in glossary.characters}
         char_added = 0
         char_updated = 0
         for char in seed_result.characters:
             char.reviewed = False
             for alias in char.aliases:
                 alias.reviewed = False
-            if char.id not in existing_char_ids:
+                
+            match_id = char.id
+            if match_id not in existing_char_ids and char.canonical_name.lower() in existing_char_names:
+                match_id = existing_char_names[char.canonical_name.lower()]
+                
+            if match_id not in existing_char_ids:
                 glossary.characters.append(char)
                 existing_char_ids.add(char.id)
                 char_added += 1
             else:
                 for existing_char in glossary.characters:
-                    if existing_char.id == char.id:
+                    if existing_char.id == match_id:
                         if char.notes:
                             existing_char.notes = char.notes
                         if char.appearance:
                             existing_char.appearance = char.appearance
                         for alias in char.aliases:
-                            if not any(ea.source == alias.source and ea.target == alias.target for ea in existing_char.aliases):
+                            if not any(ea.source == alias.source for ea in existing_char.aliases):
                                 alias.reviewed = False
                                 existing_char.aliases.append(alias)
                         char_updated += 1

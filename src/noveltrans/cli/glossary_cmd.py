@@ -220,9 +220,15 @@ def glossary_review(
                 except Exception as e:
                     console.print(f"[red]Failed to generate alternatives for chunk: {e}[/]")
 
+    rejected_chars = set()
+
     for item in items_to_review:
         is_char = item["type"] == "char"
         is_alias = item["type"] == "alias"
+        
+        if is_alias and item["char"].id in rejected_chars:
+            continue
+            
         if is_char:
             char = item["obj"]
             console.print(f"\n[bold magenta]Character:[/] {char.canonical_name} (ID: {char.id})")
@@ -244,10 +250,26 @@ def glossary_review(
             console.print(f"  [[cyan]{i}[/]] {alt}")
             
         choice = Prompt.ask(
-            "Select alternative [Enter to keep current, 1/2/3, or type custom]",
+            "Select alternative [Enter to keep current, 1/2/3, type 'x' to reject, or type custom]",
             default="",
             show_default=False
         )
+        
+        if choice.lower() == 'x':
+            if is_char:
+                if item["obj"] in glossary.characters:
+                    glossary.characters.remove(item["obj"])
+                rejected_chars.add(item["obj"].id)
+                console.print("[red]Rejected character and its aliases.[/]")
+            elif is_alias:
+                if item["obj"] in item["char"].aliases:
+                    item["char"].aliases.remove(item["obj"])
+                console.print("[red]Rejected alias.[/]")
+            else:
+                if item["obj"] in glossary.terms:
+                    glossary.terms.remove(item["obj"])
+                console.print("[red]Rejected term.[/]")
+            continue
         
         if choice:
             if choice.isdigit() and 1 <= int(choice) <= len(alts):
