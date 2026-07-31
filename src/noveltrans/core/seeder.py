@@ -6,10 +6,14 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+import structlog
+
 from noveltrans.glossary.manager import GlossaryManager
 from noveltrans.llm.client import OpenAIClient
 from noveltrans.llm.prompt_renderer import PromptRenderer
 from noveltrans.llm.protocols import SeedResult
+
+logger = structlog.get_logger()
 
 
 class GlossarySeeder:
@@ -23,8 +27,8 @@ class GlossarySeeder:
         prompts_dir: Path | str | None = None,
     ) -> None:
         """Initialize GlossarySeeder with optional LLM client, prompt renderer, and project dir."""
-        self.llm_client = llm_client or OpenAIClient()
         self.project_dir = Path(project_dir) if project_dir else None
+        self.llm_client = llm_client or OpenAIClient()
 
         if prompt_renderer is not None:
             self.prompt_renderer = prompt_renderer
@@ -43,8 +47,10 @@ class GlossarySeeder:
         """Run LLM seed call on initial chapters to extract glossary and story/arc summaries."""
         if isinstance(chapters_text, list):
             source_text = "\n\n---\n\n".join(chapters_text)
+            ch_count = len(chapters_text)
         else:
             source_text = chapters_text
+            ch_count = 1
 
         if self.prompt_renderer is not None:
             prompt = self.prompt_renderer.render_seeder(source_text)
@@ -56,11 +62,21 @@ class GlossarySeeder:
 
         import inspect
 
+        logger.info("seeding_started", chapters_count=ch_count)
         raw_res = self.llm_client.parse_seed(prompt)
         if inspect.isawaitable(raw_res):
             seed_result = await raw_res
         else:
             seed_result = raw_res
+
+        logger.info(
+            "seeding_completed",
+            characters_extracted=len(seed_result.characters),
+            terms_extracted=len(seed_result.terms),
+            relationships_extracted=len(seed_result.relationships),
+            has_story_summary=bool(seed_result.story_summary),
+            has_arc_summary=bool(seed_result.arc_summary),
+        )
 
         if save_to_project and self.project_dir is not None:
             self.save_seed_result(seed_result)
@@ -91,50 +107,79 @@ class GlossarySeeder:
     def save_seed_result(self, seed_result: SeedResult) -> None:
         """Persist SeedResult data to project's glossary.json and state/ summaries."""
         if self.project_dir is None:
+            logger.warning("save_seed_result_skipped_no_project_dir")
             return
 
         # 1. Update glossary.json via GlossaryManager
         manager = GlossaryManager(project_dir=self.project_dir)
         glossary = manager.load_glossary()
 
+        logger.info(
+            "saving_seed_result",
+            project_dir=str(self.project_dir),
+            glossary_path=str(manager.glossary_path),
+            pending_path=str(manager.pending_path),
+        )
+
         # Merge characters
         existing_char_ids = {c.id for c in glossary.characters}
+        char_added = 0
+        char_updated = 0
         for char in seed_result.characters:
             if char.id not in existing_char_ids:
                 glossary.characters.append(char)
                 existing_char_ids.add(char.id)
+                char_added += 1
             else:
                 for idx, existing_char in enumerate(glossary.characters):
                     if existing_char.id == char.id:
                         glossary.characters[idx] = char
+                        char_updated += 1
                         break
 
         # Merge terms
         existing_term_sources = {t.source for t in glossary.terms}
+        terms_added = 0
+        terms_updated = 0
         for term in seed_result.terms:
             if term.source not in existing_term_sources:
                 glossary.terms.append(term)
                 existing_term_sources.add(term.source)
+                terms_added += 1
             else:
                 for idx, existing_term in enumerate(glossary.terms):
                     if existing_term.source == term.source:
                         glossary.terms[idx] = term
+                        terms_updated += 1
                         break
 
         # Merge relationships
         existing_rel_sets = [set(r.characters) for r in glossary.relationships]
+        rels_added = 0
+        rels_updated = 0
         for rel in seed_result.relationships:
             rel_set = set(rel.characters)
             if rel_set not in existing_rel_sets:
                 glossary.relationships.append(rel)
                 existing_rel_sets.append(rel_set)
+                rels_added += 1
             else:
                 for idx, existing_rel in enumerate(glossary.relationships):
                     if set(existing_rel.characters) == rel_set:
                         glossary.relationships[idx] = rel
+                        rels_updated += 1
                         break
 
         manager.save_glossary(glossary)
+        logger.info(
+            "glossary_saved",
+            characters_added=char_added,
+            characters_updated=char_updated,
+            terms_added=terms_added,
+            terms_updated=terms_updated,
+            relationships_added=rels_added,
+            relationships_updated=rels_updated,
+        )
 
         # 2. Save story summary and arc summary to state/
         state_dir = self.project_dir / "state"
@@ -146,6 +191,7 @@ class GlossarySeeder:
             story_sum_file.write_text(
                 json.dumps(story_data, indent=2, ensure_ascii=False), encoding="utf-8"
             )
+            logger.info("story_summary_saved", path=str(story_sum_file))
 
         if seed_result.arc_summary:
             arc_sum_file = state_dir / "arc_summary.json"
@@ -153,3 +199,4 @@ class GlossarySeeder:
             arc_sum_file.write_text(
                 json.dumps(arc_data, indent=2, ensure_ascii=False), encoding="utf-8"
             )
+            logger.info("arc_summary_saved", path=str(arc_sum_file))

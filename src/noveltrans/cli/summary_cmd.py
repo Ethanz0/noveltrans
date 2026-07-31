@@ -62,42 +62,8 @@ def story_update(
         raise typer.Exit(code=1)
 
     try:
-        state_dir = project_dir / "state"
-        state_dir.mkdir(parents=True, exist_ok=True)
-
-        current_story = ""
-        story_file = state_dir / "story_summary.json"
-        if story_file.exists():
-            with open(story_file, encoding="utf-8") as f:
-                data = json.load(f)
-                current_story = data.get("story_summary", "")
-
-        arc_summary = ""
-        arc_file = state_dir / "arc_summary.json"
-        if arc_file.exists():
-            with open(arc_file, encoding="utf-8") as f:
-                data = json.load(f)
-                arc_summary = data.get("arc_summary", "")
-
-        prompts_path = project_dir / "prompts"
-        renderer = PromptRenderer(prompts_path if prompts_path.exists() else None)
-        prompt = renderer.render_story_summary(
-            current_story_summary=current_story,
-            arc_summary=arc_summary,
-        )
-
-        client = OpenAIClient()
-        new_story = client.complete(prompt)
-        if hasattr(new_story, "__await__"):
-            import asyncio
-            new_story = asyncio.run(new_story)  # pyright: ignore[reportGeneralTypeIssues]
-
-        new_story_str = str(new_story)
-        story_data = {"story_summary": new_story_str}
-        story_file.write_text(
-            json.dumps(story_data, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-
+        analyzer = ChapterAnalyzer(project_dir=project_dir)
+        _ = analyzer.regenerate_story_summary_sync()
         console.print("[bold green]Successfully updated grand story summary.[/]")
     except Exception as e:
         console.print(f"[bold red]Failed to update story summary:[/] {e}")

@@ -106,6 +106,15 @@ class LLMClient:
         raw = await self.complete(prompt, system_prompt=system_prompt)
         return await self.parser.parse_seed(raw)
 
+    async def parse_term_alternatives(
+        self, prompt: str, system_prompt: str = ""
+    ) -> "TermAlternativesResult":
+        """Execute term alternatives LLM call and parse result."""
+        from noveltrans.llm.protocols import TermAlternativesResult
+        
+        raw = await self.complete(prompt, system_prompt=system_prompt)
+        return await self.parser.parse_term_alternatives(raw)
+
 
 OpenAIClient = LLMClient
 

@@ -12,11 +12,11 @@ Existing Character Canonical Names: {{ existing_characters | join(', ') if exist
 Existing Glossary Term Sources: {{ existing_terms | join(', ') if existing_terms else 'None' }}
 
 === TASK INSTRUCTIONS ===
-Provide a comprehensive post-translation analysis in valid JSON matching the following schema:
+Provide a comprehensive post-translation analysis in JSON format containing the following:
 1. `summary`: Concise 2-4 sentence summary of key plot developments in this chapter.
 2. `key_events`: List of key plot points.
 3. `characters_present`: Characters who appeared in this chapter.
-4. `new_characters`: Newly introduced characters needing glossary entries (canonical_name, aliases, gender, speech_style, appearance, notes).
+4. `new_characters`: Newly introduced characters needing glossary entries (canonical_name, aliases, gender, speech_style, appearance, notes). IMPORTANT: In the aliases list, you must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name").
 5. `new_terms`: Newly introduced terms needing glossary entries (source, target, category, notes, confidence).
 6. `character_updates`: Updates to existing character identity knowledge, aliases, or traits.
 7. `relationship_updates`: New or modified relationships between characters.
@@ -26,3 +26,10 @@ Provide a comprehensive post-translation analysis in valid JSON matching the fol
 Note for Chinese: Ensure consistency in handling Simplified vs Traditional Chinese terminology and naming.
 {% endif %}
 
+{% if json_schema %}
+Provide your response in valid JSON matching the following schema:
+```json
+{{ json_schema }}
+```
+Do not include any other text or markdown outside of the JSON object.
+{% endif %}

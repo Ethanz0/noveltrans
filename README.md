@@ -57,9 +57,8 @@ noveltrans translate run --chapters 1-10 --project ./my_novel
 # 8. Check progress and QA issues
 noveltrans status --project ./my_novel
 
-# 9. Review and approve pending terms
-# Edit ./my_novel/state/pending_terms.json, then:
-noveltrans glossary approve --project ./my_novel
+# 9. Interactively review new terms and get LLM-suggested alternatives
+# noveltrans glossary review --project ./my_novel
 
 # 10. Build an EPUB
 noveltrans epub build --title "My Novel" --author "Author" --project ./my_novel
@@ -73,7 +72,7 @@ noveltrans epub build --title "My Novel" --author "Author" --project ./my_novel
 | `noveltrans translate run [--chapters 1-5] [--force] [--dry-run]` | Translate chapters |
 | `noveltrans glossary seed [--chapters 1-10]` | Bootstrap glossary from raw chapters |
 | `noveltrans glossary show` | Pretty-print the current glossary |
-| `noveltrans glossary approve` | Merge pending terms into glossary |
+| `noveltrans glossary review` | Interactively review newly extracted terms (LLM alternatives) |
 | `noveltrans style analyze [--chapters 1-10]` | Generate/update style guide |
 | `noveltrans arc update` | Regenerate arc summary |
 | `noveltrans story update` | Regenerate story summary |

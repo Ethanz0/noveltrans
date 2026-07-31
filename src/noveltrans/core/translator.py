@@ -209,12 +209,13 @@ class TranslationPipeline:
             source_text = self._get_source_text(chapter_number)
 
         # Record in_progress status
-        in_progress_entry = ChapterManifestEntry(
-            chapter_number=chapter_number,
-            status="in_progress",
-            force_retranslated=force,
-        )
-        self.manifest_manager.update_chapter(in_progress_entry)
+        if not dry_run:
+            in_progress_entry = ChapterManifestEntry(
+                chapter_number=chapter_number,
+                status="in_progress",
+                force_retranslated=force,
+            )
+            self.manifest_manager.update_chapter(in_progress_entry)
 
         # Step 2: Build 4-tier context & Step 3: Match glossary terms
         (
@@ -264,8 +265,6 @@ class TranslationPipeline:
                 translation_duration_seconds=round(time.time() - start_time, 2),
                 force_retranslated=force,
             )
-            self.manifest_manager.update_chapter(entry)
-            self.checkpoint_manager.update_completed(chapter_number)
             return entry
 
         # Step 6: Call LLM — TRANSLATION & Step 7: Parse translation response
@@ -344,6 +343,7 @@ class TranslationPipeline:
             try:
                 await self.analyzer.regenerate_arc_summary(chapters_since_last_arc)
                 self.last_arc_update_chapter = chapter_number
+                await self.analyzer.regenerate_story_summary()
             except Exception as e:
                 logger.warning("arc_summary_regeneration_failed", error=str(e))
 
@@ -436,7 +436,8 @@ class TranslationPipeline:
                     chapter_numbers.append(int(num_str))
 
         chapter_numbers = sorted(list(set(chapter_numbers)))
-        self.checkpoint_manager.set_batch(chapter_numbers)
+        if not dry_run:
+            self.checkpoint_manager.set_batch(chapter_numbers)
 
         entries: list[ChapterManifestEntry] = []
         for ch in chapter_numbers:

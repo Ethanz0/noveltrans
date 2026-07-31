@@ -1,6 +1,7 @@
 """Prompt renderer using Jinja2 templates for noveltrans LLM operations."""
 
 from contextlib import suppress
+import json
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,7 @@ class PromptRenderer:
         chapter_number: int = 1,
         target_language: str = "English",
         source_language: str = "ko",
+        use_structured_output: bool = False,
         **kwargs: Any,
     ) -> str:
         """Render translator prompt template."""
@@ -86,6 +88,10 @@ class PromptRenderer:
             "source_language": src_lang,
             "source_language_name": src_lang_name,
         }
+        if not use_structured_output:
+            from noveltrans.llm.protocols import TranslationResult
+            context["json_schema"] = json.dumps(TranslationResult.model_json_schema(), indent=2)
+
         context.update(kwargs)
         return self.render("translator.jinja2", **context)
 
@@ -97,6 +103,7 @@ class PromptRenderer:
         existing_characters: list[str] | None = None,
         existing_terms: list[str] | None = None,
         source_language: str = "ko",
+        use_structured_output: bool = False,
         **kwargs: Any,
     ) -> str:
         """Render post-translation analyzer prompt template."""
@@ -113,6 +120,10 @@ class PromptRenderer:
             "source_language": src_lang,
             "source_language_name": src_lang_name,
         }
+        if not use_structured_output:
+            from noveltrans.llm.protocols import AnalysisResult
+            context["json_schema"] = json.dumps(AnalysisResult.model_json_schema(), indent=2)
+
         context.update(kwargs)
         return self.render("analyzer.jinja2", **context)
 
@@ -122,6 +133,7 @@ class PromptRenderer:
         sample_chapters: list[Any] | None = None,
         project_title: str = "",
         source_language: str = "ko",
+        use_structured_output: bool = False,
         **kwargs: Any,
     ) -> str:
         """Render seeder prompt template."""
@@ -137,6 +149,10 @@ class PromptRenderer:
             "source_language": src_lang,
             "source_language_name": src_lang_name,
         }
+        if not use_structured_output:
+            from noveltrans.llm.protocols import SeedResult
+            context["json_schema"] = json.dumps(SeedResult.model_json_schema(), indent=2)
+
         context.update(kwargs)
         return self.render("seeder.jinja2", **context)
 
@@ -219,3 +235,31 @@ class PromptRenderer:
         }
         context.update(kwargs)
         return self.render("story_summary.jinja2", **context)
+
+    def render_term_alternatives(
+        self,
+        source_term: str,
+        current_translation: str,
+        category: str,
+        source_language: str = "ko",
+        use_structured_output: bool = False,
+        **kwargs: Any,
+    ) -> str:
+        """Render term alternatives prompt template."""
+        src_lang = kwargs.pop("source_language", source_language).lower()
+        src_lang_name = kwargs.pop(
+            "source_language_name", self.get_source_language_name(src_lang)
+        )
+        context: dict[str, Any] = {
+            "source_term": source_term,
+            "current_translation": current_translation,
+            "category": category,
+            "source_language": src_lang,
+            "source_language_name": src_lang_name,
+        }
+        if not use_structured_output:
+            from noveltrans.llm.protocols import TermAlternativesResult
+            context["json_schema"] = json.dumps(TermAlternativesResult.model_json_schema(), indent=2)
+
+        context.update(kwargs)
+        return self.render("term_alternatives.jinja2", **context)

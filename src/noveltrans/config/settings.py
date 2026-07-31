@@ -1,7 +1,33 @@
-"""Configuration models for env settings and project settings."""
-
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def load_project_env() -> None:
+    """Dynamically load project-specific .env from command line args if specified."""
+    project_path = None
+    for idx, arg in enumerate(sys.argv):
+        if arg in ("--project", "-p"):
+            if idx + 1 < len(sys.argv):
+                project_path = Path(sys.argv[idx + 1])
+                break
+        elif arg.startswith("--project="):
+            project_path = Path(arg.split("=", 1)[1])
+            break
+        elif arg.startswith("-p="):
+            project_path = Path(arg.split("=", 1)[1])
+            break
+
+    if project_path:
+        env_file = (project_path.resolve() / ".env")
+        if env_file.exists() and env_file.is_file():
+            load_dotenv(env_file, override=True)
+
+
+# Load project-specific env configuration before pydantic-settings initialization
+load_project_env()
 
 
 class EnvSettings(BaseSettings):

@@ -27,7 +27,6 @@ class ChapterAnalyzer:
         prompt_renderer: PromptRenderer | None = None,
         glossary_manager: GlossaryManager | None = None,
         project_dir: Path | str | None = None,
-        confidence_threshold: float = 0.8,
     ) -> None:
         self.llm_client = llm_client or OpenAIClient()
         self.project_dir = Path(project_dir) if project_dir else None
@@ -46,7 +45,7 @@ class ChapterAnalyzer:
         else:
             self.glossary_manager = GlossaryManager()
 
-        self.confidence_threshold = confidence_threshold
+
 
     async def analyze(
         self,
@@ -101,26 +100,14 @@ class ChapterAnalyzer:
         chapters_since_last_arc: int = 0,
         arc_fallback_interval: int = 15,
     ) -> dict[str, Any]:
-        """Process and auto-commit analysis outputs to glossary and disk."""
-        high_conf_terms: list[GlossaryTerm] = []
-        low_conf_terms: list[GlossaryTerm] = []
-
+        # 1. Commit all terms to glossary
         for term in analysis.new_terms:
-            if term.confidence >= self.confidence_threshold:
-                high_conf_terms.append(term)
-            else:
-                low_conf_terms.append(term)
-
-        # 1. Commit high-confidence terms to glossary
-        for term in high_conf_terms:
+            term.reviewed = False
             self.glossary_manager.add_term(term)
 
-        # 2. Add low-confidence terms to pending_terms.json
-        if low_conf_terms:
-            self.glossary_manager.add_pending_terms(low_conf_terms)
-
-        # 3. Commit new characters to glossary
+        # 2. Commit new characters to glossary
         for char in analysis.new_characters:
+            char.reviewed = False
             self.glossary_manager.add_character(char)
 
         # 4. Commit relationship updates
@@ -144,6 +131,26 @@ class ChapterAnalyzer:
                         char.appearance = str(update["appearance"])
                     if "notes" in update:
                         char.notes = str(update["notes"])
+                        
+                    if "canonical_name" in update:
+                        char.canonical_name = str(update["canonical_name"])
+                        
+                    if "knows_identity" in update and isinstance(update["knows_identity"], list):
+                        for kid in update["knows_identity"]:
+                            kid_str = str(kid)
+                            if kid_str not in char.knows_identity:
+                                char.knows_identity.append(kid_str)
+                                
+                    if "aliases" in update and isinstance(update["aliases"], list):
+                        from noveltrans.glossary.models import CharacterAlias
+                        for a_data in update["aliases"]:
+                            if isinstance(a_data, dict):
+                                try:
+                                    alias = CharacterAlias(**a_data)
+                                    if not any(ea.source == alias.source and ea.target == alias.target for ea in char.aliases):
+                                        char.aliases.append(alias)
+                                except Exception:
+                                    pass
                     updated = True
             if updated:
                 glossary.characters = list(char_map.values())
@@ -172,15 +179,13 @@ class ChapterAnalyzer:
         logger.info(
             "analysis_processed",
             chapter_number=chapter_number,
-            high_conf_terms=len(high_conf_terms),
-            low_conf_terms=len(low_conf_terms),
+            new_terms=len(analysis.new_terms),
             new_characters=len(analysis.new_characters),
             triggers_arc_update=triggers_arc_update,
         )
 
         return {
-            "high_confidence_terms": high_conf_terms,
-            "low_confidence_terms": low_conf_terms,
+            "new_terms": analysis.new_terms,
             "new_characters": analysis.new_characters,
             "triggers_arc_update": triggers_arc_update,
         }
@@ -244,3 +249,57 @@ class ChapterAnalyzer:
     ) -> str:
         """Synchronous wrapper for regenerate_arc_summary()."""
         return asyncio.run(self.regenerate_arc_summary(chapters_since_last_arc))
+
+    async def regenerate_story_summary(self) -> str:
+        """Regenerate overall story summary from arc and chapter summaries."""
+        current_story = ""
+        arc_summary = ""
+
+        if self.project_dir:
+            state_dir = self.project_dir / "state"
+            state_dir.mkdir(parents=True, exist_ok=True)
+
+            story_file = state_dir / "story_summary.json"
+            if story_file.exists():
+                try:
+                    data = json.loads(story_file.read_text(encoding="utf-8"))
+                    current_story = str(data.get("story_summary", ""))
+                except Exception:
+                    pass
+
+            arc_file = state_dir / "arc_summary.json"
+            if arc_file.exists():
+                try:
+                    data = json.loads(arc_file.read_text(encoding="utf-8"))
+                    arc_summary = str(data.get("arc_summary", ""))
+                except Exception:
+                    pass
+
+        prompt = self.prompt_renderer.render_story_summary(
+            current_story_summary=current_story,
+            arc_summary=arc_summary,
+        )
+
+        import inspect
+
+        raw_res = self.llm_client.complete(prompt)
+        if inspect.isawaitable(raw_res):
+            res_val = await raw_res
+            new_story_summary = str(res_val)
+        else:
+            new_story_summary = str(raw_res)
+
+        if self.project_dir:
+            state_dir = self.project_dir / "state"
+            state_dir.mkdir(parents=True, exist_ok=True)
+            story_file = state_dir / "story_summary.json"
+            story_file.write_text(
+                json.dumps({"story_summary": new_story_summary}, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+        return new_story_summary
+
+    def regenerate_story_summary_sync(self) -> str:
+        """Synchronous wrapper for regenerate_story_summary()."""
+        return asyncio.run(self.regenerate_story_summary())

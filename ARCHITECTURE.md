@@ -77,7 +77,7 @@ noveltrans/
 │   │
 │   ├── glossary/                   # Glossary management system
 │   │   ├── models.py               # Character, CharacterAlias, Relationship, GlossaryTerm, Glossary
-│   │   ├── manager.py              # CRUD operations on glossary.json + pending_terms.json
+│   │   ├── manager.py              # CRUD operations on glossary.json
 │   │   └── matcher.py              # Aho-Corasick + RapidFuzz term matching
 │   │
 │   ├── state/                      # State persistence
@@ -105,7 +105,7 @@ noveltrans/
 │       ├── app.py                  # Root app + subcommand registration
 │       ├── init_cmd.py             # `noveltrans init`
 │       ├── translate_cmd.py        # `noveltrans translate run`
-│       ├── glossary_cmd.py         # `noveltrans glossary seed/show/approve`
+│       ├── glossary_cmd.py         # `noveltrans glossary seed/show/review`
 │       ├── epub_cmd.py             # `noveltrans epub build`
 │       ├── style_cmd.py            # `noveltrans style analyze`
 │       ├── summary_cmd.py          # `noveltrans arc update` / `noveltrans story update`
@@ -226,7 +226,7 @@ flowchart TD
     S11 --> S12 --> S13 --> S14
 
     S11 --> |"High confidence ≥0.8"| AUTO["Auto-commit to glossary.json"]
-    S11 --> |"Low confidence <0.8"| PEND["Append to pending_terms.json"]
+    S11 --> |"All new terms/chars"| GLOSS["Append to glossary.json (reviewed=False)"]
     S11 --> |"Chapter summary"| SUM["Save to state/summaries/"]
     S11 --> |"Significant event"| ARC["Trigger arc summary regen<br/>(extra LLM call)"]
 ```
@@ -236,7 +236,7 @@ flowchart TD
 | Sub-step | Condition | Action |
 |---|---|---|
 | 11a | Term confidence ≥ 0.8 | Auto-commit to `glossary.json` |
-| 11b | Term confidence < 0.8 | Append to `state/pending_terms.json` |
+| 11b | New Characters / Terms | Extracted entities are saved to `glossary.json` with internal flag `reviewed=False` |
 | 11c | Character/relationship updates | Auto-commit to `glossary.json` |
 | 11d | Always | Save chapter summary to `state/summaries/chNNN.json` |
 | 11e | `significant_event.triggers_arc_update == True` | Regenerate arc summary (extra LLM call) |
@@ -425,7 +425,7 @@ All 6 templates live in `prompts/` and are copied to each project on `init`. Use
 | `noveltrans translate run` | Translate chapters | `--chapters`, `--force`, `--dry-run`, `--project` |
 | `noveltrans glossary seed` | Bootstrap glossary from raw chapters | `--chapters`, `--project` |
 | `noveltrans glossary show` | Pretty-print glossary | `--project` |
-| `noveltrans glossary approve` | Merge pending terms into glossary | `--project` |
+| `noveltrans glossary review` | Interactively review newly extracted terms (LLM alternatives) | `--project`, `--skip-llm` |
 | `noveltrans style analyze` | Generate/update style guide | `--chapters`, `--project` |
 | `noveltrans arc update` | Regenerate arc summary | `--project` |
 | `noveltrans story update` | Regenerate story summary | `--project` |
@@ -494,7 +494,7 @@ my_novel/
 │   ├── arc_summary.json        # Current arc summary
 │   ├── glossary_snapshots/     # Historical glossary versions (one per chapter)
 │   ├── prompts/                # Archived assembled prompts (for debugging)
-│   └── pending_terms.json      # Low-confidence terms awaiting manual review
+
 ├── prompts/                    # Project-local Jinja2 templates (editable)
 ├── glossary.json               # Active glossary
 ├── style_guide.md              # Translation style guide

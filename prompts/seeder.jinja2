@@ -8,8 +8,8 @@ Analyze the provided {{ source_language_name | default('Korean') }} sample chapt
 {% endfor %}
 
 === TASK INSTRUCTIONS ===
-Extract and construct the initial project foundation in JSON:
-1. `characters`: List of major and recurring characters (canonical_name, aliases with source/target/gender/context/alias_type, gender, speech_style, appearance, always_include, notes).
+Extract and construct the initial project foundation in JSON format containing the following:
+1. `characters`: List of major and recurring characters (canonical_name, aliases with source/target/gender/context/alias_type, gender, speech_style, appearance, always_include, notes). IMPORTANT: You must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name").
 2. `terms`: Key proper nouns, places, techniques, organizations, titles, and items (source, target, category, notes, confidence).
 3. `relationships`: Major character relationships (characters, description).
 4. `story_summary`: High-level summary of the overall premise and starting scenario.
@@ -18,3 +18,10 @@ Extract and construct the initial project foundation in JSON:
 Note for Chinese: Ensure consistency in handling Simplified vs Traditional Chinese terminology and naming when extracting characters and terms.
 {% endif %}
 
+{% if json_schema %}
+Provide your response in valid JSON matching the following schema:
+```json
+{{ json_schema }}
+```
+Do not include any other text or markdown outside of the JSON object.
+{% endif %}

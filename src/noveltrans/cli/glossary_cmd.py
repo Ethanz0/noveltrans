@@ -12,6 +12,9 @@ from noveltrans.cli.translate_cmd import parse_chapters
 from noveltrans.core.seeder import GlossarySeeder
 from noveltrans.glossary.manager import GlossaryManager
 from noveltrans.glossary.models import GlossaryTerm
+from noveltrans.llm.client import OpenAIClient
+from noveltrans.llm.prompt_renderer import PromptRenderer
+from rich.prompt import Prompt
 
 glossary_app = typer.Typer(help="Glossary management commands")
 console = Console()
@@ -130,8 +133,8 @@ def glossary_show(
     console.print(term_table)
 
 
-@glossary_app.command("approve")
-def glossary_approve(
+@glossary_app.command("review")
+def glossary_review(
     project: Annotated[
         Path,
         typer.Option(
@@ -140,59 +143,113 @@ def glossary_approve(
             help="Path to project root directory",
         ),
     ] = Path("."),
+    skip_llm: Annotated[
+        bool,
+        typer.Option(
+            "--skip-llm",
+            help="Skip LLM alternative generation for faster manual review",
+        ),
+    ] = False,
 ) -> None:
-    """Approve and merge pending terms from state/pending_terms.json into glossary.json."""
+    """Review and lock in new glossary terms and characters interactively."""
+    import asyncio
     project_dir = project.resolve()
     if not project_dir.exists():
         console.print(f"[bold red]Project directory does not exist:[/] {project_dir}")
         raise typer.Exit(code=1)
 
-    pending_file = project_dir / "state" / "pending_terms.json"
-    if not pending_file.exists():
-        console.print("[bold yellow]No pending terms file found.[/]")
-        return
-
-    try:
-        content = pending_file.read_text(encoding="utf-8")
-        pending_data = json.loads(content)
-    except Exception as e:
-        console.print(f"[bold red]Failed to parse pending_terms.json:[/] {e}")
-        raise typer.Exit(code=1) from e
-
-    if not pending_data or not isinstance(pending_data, list):
-        console.print("[bold yellow]No pending terms to approve.[/]")
-        pending_file.write_text("[]", encoding="utf-8")
-        return
-
     manager = GlossaryManager(project_dir=project_dir)
-    glossary = manager.load_glossary()
+    try:
+        glossary = manager.load_glossary()
+    except Exception as e:
+        console.print(f"[bold red]Failed to load glossary.json:[/] {e}")
+        raise typer.Exit(code=1)
 
-    existing_sources = {t.source for t in glossary.terms}
-    approved_count = 0
+    unreviewed_terms = [t for t in glossary.terms if not t.reviewed]
+    unreviewed_chars = [c for c in glossary.characters if not c.reviewed]
 
-    for item in pending_data:
-        if isinstance(item, dict) and "source" in item and "target" in item:
-            term = GlossaryTerm(
-                source=str(item["source"]),
-                target=str(item["target"]),
-                category=str(item.get("category", "general")),
-                notes=str(item.get("notes", "")),
-                confidence=float(item.get("confidence", 1.0)),
-            )
-            if term.source not in existing_sources:
-                glossary.terms.append(term)
-                existing_sources.add(term.source)
+    if not unreviewed_terms and not unreviewed_chars:
+        console.print("[bold green]All glossary terms and characters are already reviewed![/]")
+        return
+
+    console.print(f"[bold cyan]Found {len(unreviewed_terms)} unreviewed term(s) and {len(unreviewed_chars)} unreviewed character(s).[/]\n")
+
+    llm_client = OpenAIClient() if not skip_llm else None
+    prompt_renderer = PromptRenderer() if not skip_llm else None
+
+    # Process terms
+    for term in unreviewed_terms:
+        console.print(f"\n[bold yellow]Term:[/] {term.source} -> {term.target}")
+        console.print(f"[italic]Category:[/] {term.category}")
+        
+        alternatives = []
+        if llm_client and prompt_renderer:
+            with console.status("Generating alternatives..."):
+                prompt = prompt_renderer.render_term_alternatives(
+                    source_term=term.source,
+                    current_translation=term.target,
+                    category=term.category,
+                )
+                try:
+                    res = asyncio.run(llm_client.parse_term_alternatives(prompt))
+                    alternatives = res.alternatives
+                except Exception as e:
+                    console.print(f"[red]Failed to generate alternatives: {e}[/]")
+        
+        for i, alt in enumerate(alternatives, 1):
+            console.print(f"  [[cyan]{i}[/]] {alt}")
+            
+        choice = Prompt.ask(
+            "Select alternative [Enter to keep current, 1/2/3, or type custom]",
+            default="",
+            show_default=False
+        )
+        
+        if choice:
+            if choice.isdigit() and 1 <= int(choice) <= len(alternatives):
+                term.target = alternatives[int(choice) - 1]
             else:
-                for idx, existing in enumerate(glossary.terms):
-                    if existing.source == term.source:
-                        glossary.terms[idx] = term
-                        break
-            approved_count += 1
+                term.target = choice
+        
+        term.reviewed = True
+        console.print(f"[green]Saved as:[/] {term.target}")
+
+    # Process characters
+    for char in unreviewed_chars:
+        console.print(f"\n[bold magenta]Character:[/] {char.canonical_name} (ID: {char.id})")
+        console.print(f"[italic]Gender:[/] {char.gender} | [italic]Speech:[/] {char.speech_style}")
+        
+        alternatives = []
+        if llm_client and prompt_renderer:
+            with console.status("Generating alternatives..."):
+                prompt = prompt_renderer.render_term_alternatives(
+                    source_term=char.id,
+                    current_translation=char.canonical_name,
+                    category="Character Name",
+                )
+                try:
+                    res = asyncio.run(llm_client.parse_term_alternatives(prompt))
+                    alternatives = res.alternatives
+                except Exception as e:
+                    console.print(f"[red]Failed to generate alternatives: {e}[/]")
+        
+        for i, alt in enumerate(alternatives, 1):
+            console.print(f"  [[cyan]{i}[/]] {alt}")
+            
+        choice = Prompt.ask(
+            "Select alternative [Enter to keep current, 1/2/3, or type custom]",
+            default="",
+            show_default=False
+        )
+        
+        if choice:
+            if choice.isdigit() and 1 <= int(choice) <= len(alternatives):
+                char.canonical_name = alternatives[int(choice) - 1]
+            else:
+                char.canonical_name = choice
+        
+        char.reviewed = True
+        console.print(f"[green]Saved as:[/] {char.canonical_name}")
 
     manager.save_glossary(glossary)
-    pending_file.write_text("[]", encoding="utf-8")
-
-    console.print(
-        f"[bold green]Successfully approved and merged {approved_count} "
-        "pending term(s) into glossary.json.[/]"
-    )
+    console.print("\n[bold green]Review complete! Saved to glossary.json.[/]")

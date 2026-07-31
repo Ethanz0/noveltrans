@@ -5,7 +5,7 @@ import re
 from contextlib import suppress
 from typing import Any, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from noveltrans.glossary.models import Character, GlossaryTerm, Relationship
 from noveltrans.state.models import SignificantEvent
@@ -31,6 +31,28 @@ class AnalysisResult(BaseModel):
     significant_events: list[SignificantEvent] = Field(default_factory=list)
     qa_flags: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def clean_lists(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for field in ["key_events", "characters_present", "qa_flags"]:
+                val = data.get(field)
+                if isinstance(val, list):
+                    cleaned = []
+                    for item in val:
+                        if isinstance(item, dict):
+                            parts = []
+                            for k in ["event", "name", "issue_type", "description", "text"]:
+                                if k in item and item[k]:
+                                    parts.append(str(item[k]))
+                            if not parts:
+                                parts.append(json.dumps(item, ensure_ascii=False))
+                            cleaned.append(": ".join(parts))
+                        elif item is not None:
+                            cleaned.append(str(item))
+                    data[field] = cleaned
+        return data
+
 
 class SeedResult(BaseModel):
     """Result from the initial glossary and story seeding LLM step."""
@@ -42,12 +64,19 @@ class SeedResult(BaseModel):
     arc_summary: str = ""
 
 
+class TermAlternativesResult(BaseModel):
+    """Result from the term alternatives generation LLM step."""
+
+    alternatives: list[str] = Field(default_factory=list)
+
+
 class ResponseParser(Protocol):
     """Protocol for parsing LLM response strings into structured models."""
 
     async def parse_translation(self, raw: str) -> TranslationResult: ...
     async def parse_analysis(self, raw: str) -> AnalysisResult: ...
     async def parse_seed(self, raw: str) -> SeedResult: ...
+    async def parse_term_alternatives(self, raw: str) -> TermAlternativesResult: ...
 
 
 def _clean_json_str(raw: str) -> str:
@@ -64,13 +93,20 @@ def _clean_json_str(raw: str) -> str:
     return cleaned
 
 
-def _extract_xml_tag(raw: str, tag: str) -> str | None:
-    """Extracts text content inside <tag>...</tag>."""
-    pattern = rf"<{tag}>(.*?)</{tag}>"
-    match = re.search(pattern, raw, re.DOTALL | re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-    return None
+def _extract_json_block(raw: str) -> str:
+    """Finds and extracts the first JSON object block from a string."""
+    # Look for ```json ... ``` or ``` ... ```
+    json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL | re.IGNORECASE)
+    if json_match:
+        return json_match.group(1).strip()
+
+    # Fallback: look for the first '{' and last '}'
+    start_idx = raw.find("{")
+    end_idx = raw.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return raw[start_idx:end_idx + 1].strip()
+
+    return raw.strip()
 
 
 class StructuredOutputParser:
@@ -103,123 +139,54 @@ class StructuredOutputParser:
             err_msg = f"Failed to parse SeedResult JSON: {e}\nRaw input: {raw[:200]}"
             raise ValueError(err_msg) from e
 
+    async def parse_term_alternatives(self, raw: str) -> TermAlternativesResult:
+        """Parse raw JSON completion into TermAlternativesResult."""
+        cleaned = _clean_json_str(raw)
+        try:
+            return TermAlternativesResult.model_validate_json(cleaned)
+        except Exception as e:
+            err_msg = f"Failed to parse TermAlternativesResult JSON: {e}\nRaw input: {raw[:200]}"
+            raise ValueError(err_msg) from e
+
 
 class PromptBasedParser:
-    """Parses LLM output from XML tags (e.g. <translation>, <summary>, <terms>)."""
+    """Parses LLM output from a JSON block in the text response."""
 
     async def parse_translation(self, raw: str) -> TranslationResult:
-        """Parse translation output from XML tags."""
-        text_content = _extract_xml_tag(raw, "translation")
-        notes_content = (
-            _extract_xml_tag(raw, "translator_notes")
-            or _extract_xml_tag(raw, "notes")
-            or ""
-        )
-
-        if text_content is not None:
-            return TranslationResult(
-                translated_text=text_content,
-                translator_notes=notes_content,
-            )
-
-        # Fallback if no <translation> tag found
-        return TranslationResult(
-            translated_text=raw.strip(),
-            translator_notes=notes_content,
-        )
+        """Parse translation output from JSON block."""
+        cleaned = _extract_json_block(raw)
+        if cleaned.startswith("{") and cleaned.endswith("}"):
+            try:
+                return TranslationResult.model_validate_json(cleaned)
+            except Exception as e:
+                err_msg = f"Failed to parse TranslationResult JSON: {e}\nRaw input: {raw[:200]}"
+                raise ValueError(err_msg) from e
+        # Fallback if raw is plain text translation output
+        return TranslationResult(translated_text=raw.strip())
 
     async def parse_analysis(self, raw: str) -> AnalysisResult:
-        """Parse analysis output from XML tags."""
-        summary = _extract_xml_tag(raw, "summary") or ""
-
-        def parse_json_or_lines(tag_name: str) -> list[Any]:
-            tag_val = _extract_xml_tag(raw, tag_name)
-            if not tag_val:
-                return []
-            with suppress(Exception):
-                parsed = json.loads(_clean_json_str(tag_val))
-                if isinstance(parsed, list):
-                    return parsed
-            # Line fallback
-            lines = [line.strip("- *").strip() for line in tag_val.splitlines() if line.strip()]
-            return lines
-
-        key_events_raw = parse_json_or_lines("key_events") or parse_json_or_lines("events")
-        key_events = [str(x) for x in key_events_raw]
-        characters_present = [str(x) for x in parse_json_or_lines("characters_present")]
-        qa_flags = [str(x) for x in parse_json_or_lines("qa_flags")]
-
-        new_chars_raw = parse_json_or_lines("new_characters")
-        new_characters: list[Character] = []
-        for item in new_chars_raw:
-            if isinstance(item, dict):
-                with suppress(Exception):
-                    new_characters.append(Character.model_validate(item))
-
-        new_terms_raw = parse_json_or_lines("new_terms") or parse_json_or_lines("terms")
-        new_terms: list[GlossaryTerm] = []
-        for item in new_terms_raw:
-            if isinstance(item, dict):
-                with suppress(Exception):
-                    new_terms.append(GlossaryTerm.model_validate(item))
-
-        char_updates_raw = parse_json_or_lines("character_updates")
-        character_updates: list[dict[str, Any]] = [
-            item for item in char_updates_raw if isinstance(item, dict)
-        ]
-
-        rel_updates_raw = parse_json_or_lines("relationship_updates")
-        relationship_updates: list[Relationship] = []
-        for item in rel_updates_raw:
-            if isinstance(item, dict):
-                with suppress(Exception):
-                    relationship_updates.append(Relationship.model_validate(item))
-
-        sig_events_raw = parse_json_or_lines("significant_events")
-        significant_events: list[SignificantEvent] = []
-        for item in sig_events_raw:
-            if isinstance(item, dict):
-                with suppress(Exception):
-                    significant_events.append(SignificantEvent.model_validate(item))
-
-        return AnalysisResult(
-            summary=summary,
-            key_events=key_events,
-            characters_present=characters_present,
-            new_characters=new_characters,
-            new_terms=new_terms,
-            character_updates=character_updates,
-            relationship_updates=relationship_updates,
-            significant_events=significant_events,
-            qa_flags=qa_flags,
-        )
+        """Parse analysis output from JSON block."""
+        cleaned = _extract_json_block(raw)
+        try:
+            return AnalysisResult.model_validate_json(cleaned)
+        except Exception as e:
+            err_msg = f"Failed to parse AnalysisResult JSON: {e}\nRaw input: {raw[:200]}"
+            raise ValueError(err_msg) from e
 
     async def parse_seed(self, raw: str) -> SeedResult:
-        """Parse seed output from XML tags."""
-        story_summary = _extract_xml_tag(raw, "story_summary") or ""
-        arc_summary = _extract_xml_tag(raw, "arc_summary") or ""
+        """Parse seed output from JSON block."""
+        cleaned = _extract_json_block(raw)
+        try:
+            return SeedResult.model_validate_json(cleaned)
+        except Exception as e:
+            err_msg = f"Failed to parse SeedResult JSON: {e}\nRaw input: {raw[:200]}"
+            raise ValueError(err_msg) from e
 
-        def parse_json_list(tag_name: str) -> list[dict[str, Any]]:
-            tag_val = _extract_xml_tag(raw, tag_name)
-            if not tag_val:
-                return []
-            try:
-                parsed = json.loads(_clean_json_str(tag_val))
-                if isinstance(parsed, list):
-                    return [x for x in parsed if isinstance(x, dict)]
-            except Exception:
-                pass
-            return []
-
-        chars = [Character.model_validate(x) for x in parse_json_list("characters")]
-        terms = [GlossaryTerm.model_validate(x) for x in parse_json_list("terms")]
-        rels = [Relationship.model_validate(x) for x in parse_json_list("relationships")]
-
-        return SeedResult(
-            characters=chars,
-            terms=terms,
-            relationships=rels,
-            story_summary=story_summary,
-            arc_summary=arc_summary,
-        )
-
+    async def parse_term_alternatives(self, raw: str) -> TermAlternativesResult:
+        """Parse term alternatives output from JSON block."""
+        cleaned = _extract_json_block(raw)
+        try:
+            return TermAlternativesResult.model_validate_json(cleaned)
+        except Exception as e:
+            err_msg = f"Failed to parse TermAlternativesResult JSON: {e}\nRaw input: {raw[:200]}"
+            raise ValueError(err_msg) from e

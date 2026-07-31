@@ -5,7 +5,7 @@ Follows 4-tier testing methodology:
 - Tier 2: Boundary & Corner cases
   (invalid paths, non-existent projects, bad chapter ranges, missing flags, corrupt json)
 - Tier 3: Cross-command interactions
-  (init -> seed -> approve -> translate --dry-run -> status -> epub build)
+  (init -> seed -> review -> translate --dry-run -> status -> epub build)
 - Tier 4: Real-world workflow integration scenarios
 """
 
@@ -305,53 +305,6 @@ class TestTier1GlossaryCommands:
             has_gloss = "Glossary" in result.output or len(result.output) > 0
             assert has_name or has_gloss
 
-    def test_glossary_approve_merges_pending_terms(
-        self, runner: CliRunner, temp_project_dir: Path
-    ) -> None:
-        """Test glossary approve merges pending_terms.json into glossary.json."""
-        pending_file = temp_project_dir / "state" / "pending_terms.json"
-        pending_term = {
-            "source": "신검",
-            "target": "Divine Sword",
-            "category": "item",
-            "notes": "Pending extracted term",
-            "confidence": 0.7,
-        }
-        pending_file.write_text(json.dumps([pending_term]), encoding="utf-8")
-
-        result = runner.invoke(app, ["glossary", "approve", "--project", str(temp_project_dir)])
-
-        if result.exit_code == 0:
-            glossary_content = json.loads(
-                (temp_project_dir / "glossary.json").read_text(encoding="utf-8")
-            )
-            term_sources = [t["source"] for t in glossary_content.get("terms", [])]
-            assert "신검" in term_sources or len(glossary_content.get("terms", [])) > 0
-
-            pending_data = json.loads(pending_file.read_text(encoding="utf-8"))
-            assert len(pending_data) == 0
-
-    def test_glossary_approve_clears_pending_file_content(
-        self, runner: CliRunner, temp_project_dir: Path
-    ) -> None:
-        """Test glossary approve resets pending_terms.json to empty list."""
-        pending_file = temp_project_dir / "state" / "pending_terms.json"
-        pending_file.write_text(
-            json.dumps([
-                {
-                    "source": "마령",
-                    "target": "Demon Spirit",
-                    "category": "concept",
-                    "confidence": 0.6,
-                }
-            ]),
-            encoding="utf-8",
-        )
-
-        result = runner.invoke(app, ["glossary", "approve", "-p", str(temp_project_dir)])
-        if result.exit_code == 0:
-            content = pending_file.read_text(encoding="utf-8")
-            assert content.strip() == "[]" or json.loads(content) == []
 
 
 class TestTier1StyleCommand:
@@ -618,7 +571,7 @@ class TestTier2BoundaryCases:
         pending_file = temp_project_dir / "state" / "pending_terms.json"
         pending_file.write_text("[]", encoding="utf-8")
 
-        result = runner.invoke(app, ["glossary", "approve", "--project", str(temp_project_dir)])
+        result = runner.invoke(app, ["glossary", "review", "--skip-llm", "--project", str(temp_project_dir)], input="\n" * 50)
         if result.exit_code == 0:
             assert "0" in result.output or "No pending" in result.output or len(result.output) >= 0
 
@@ -629,7 +582,7 @@ class TestTier2BoundaryCases:
         pending_file = temp_project_dir / "state" / "pending_terms.json"
         pending_file.write_text("[INVALID_JSON}", encoding="utf-8")
 
-        result = runner.invoke(app, ["glossary", "approve", "--project", str(temp_project_dir)])
+        result = runner.invoke(app, ["glossary", "review", "--skip-llm", "--project", str(temp_project_dir)], input="\n" * 50)
         assert isinstance(result.exit_code, int)
 
     def test_glossary_show_corrupt_glossary_json(
@@ -684,10 +637,10 @@ class TestTier2BoundaryCases:
 class TestTier3CrossCommandInteractions:
     """Tier 3 test suite for multi-command interactions and pipeline sequences."""
 
-    def test_cross_command_init_seed_approve_translate_status_epub(
+    def test_cross_command_init_seed_review_translate_status_epub(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
-        """Test sequential pipeline: init -> seed -> approve -> dry-run -> status -> epub."""
+        """Test sequential pipeline: init -> seed -> review -> dry-run -> status -> epub."""
         proj_dir = tmp_path / "pipeline_novel"
 
         res_init = runner.invoke(app, ["init", str(proj_dir)])
@@ -698,7 +651,7 @@ class TestTier3CrossCommandInteractions:
             )
 
             runner.invoke(app, ["glossary", "seed", "--project", str(proj_dir)])
-            runner.invoke(app, ["glossary", "approve", "--project", str(proj_dir)])
+            runner.invoke(app, ["glossary", "review", "--skip-llm", "--project", str(proj_dir)], input="\n" * 50)
 
             res_trans = runner.invoke(
                 app, ["translate", "run", "--dry-run", "--project", str(proj_dir)]
@@ -729,7 +682,7 @@ class TestTier3CrossCommandInteractions:
         )
         assert isinstance(res_force.exit_code, int)
 
-    def test_cross_command_seed_then_approve_then_show(
+    def test_cross_command_seed_then_review_then_show(
         self, runner: CliRunner, temp_project_dir: Path
     ) -> None:
         """Test seeding terms, approving pending terms, and showing updated glossary."""
@@ -742,9 +695,7 @@ class TestTier3CrossCommandInteractions:
         }
         pending_file.write_text(json.dumps([pending_term]), encoding="utf-8")
 
-        res_approve = runner.invoke(
-            app, ["glossary", "approve", "--project", str(temp_project_dir)]
-        )
+        res_approve = runner.invoke(app, ["glossary", "review", "--skip-llm", "--project", str(temp_project_dir)], input="\n" * 50)
         assert isinstance(res_approve.exit_code, int)
 
         res_show = runner.invoke(app, ["glossary", "show", "--project", str(temp_project_dir)])
@@ -791,7 +742,7 @@ class TestTier4RealWorldWorkflows:
             ]),
             encoding="utf-8",
         )
-        runner.invoke(app, ["glossary", "approve", "--project", str(proj_dir)])
+        runner.invoke(app, ["glossary", "review", "--skip-llm", "--project", str(proj_dir)], input="\n" * 50)
 
         runner.invoke(app, ["translate", "run", "--dry-run", "--project", str(proj_dir)])
 

@@ -78,3 +78,10 @@ Immediate Previous Chapters:
 === CHAPTER {{ chapter_number }} SOURCE TEXT ===
 {{ source_text }}
 
+{% if json_schema %}
+Provide your response in valid JSON matching the following schema:
+```json
+{{ json_schema }}
+```
+Do not include any other text or markdown outside of the JSON object.
+{% endif %}

@@ -25,49 +25,44 @@ def test_analyze_chapter_basic(temp_project_dir: Path, mock_llm_client: MagicMoc
     assert result.summary == "Sung Jinwoo awakens his Shadow Monarch powers in battle."
 
 
-def test_process_analysis_term_filtering(
+def test_process_analysis_term_auto_commit(
     temp_project_dir: Path, mock_llm_client: MagicMock
 ) -> None:
     analyzer = ChapterAnalyzer(
         llm_client=mock_llm_client,
         project_dir=temp_project_dir,
-        confidence_threshold=0.8,
     )
 
-    high_term = GlossaryTerm(
+    term1 = GlossaryTerm(
         source="그림자 병사",
         target="Shadow Soldier",
         category="concept",
-        confidence=0.9,
     )
-    low_term = GlossaryTerm(
+    term2 = GlossaryTerm(
         source="마력 측정기",
         target="Mana Measuring Device",
         category="item",
-        confidence=0.6,
     )
 
     analysis = AnalysisResult(
         summary="Test chapter summary",
-        new_terms=[high_term, low_term],
+        new_terms=[term1, term2],
     )
 
     processed = analyzer.process_analysis_result(chapter_number=1, analysis=analysis)
 
-    assert high_term in processed["high_confidence_terms"]
-    assert low_term in processed["low_confidence_terms"]
+    assert term1 in processed["new_terms"]
+    assert term2 in processed["new_terms"]
 
-    # Verify high_term committed to glossary.json
+    # Verify both terms committed to glossary.json with reviewed=False
     manager = GlossaryManager(project_dir=temp_project_dir)
     glossary = manager.load_glossary()
-    term_sources = {t.source for t in glossary.terms}
-    assert "그림자 병사" in term_sources
-    assert "마력 측정기" not in term_sources
-
-    # Verify low_term added to pending_terms.json
-    pending = manager.load_pending_terms()
-    pending_sources = {t.source for t in pending}
-    assert "마력 측정기" in pending_sources
+    
+    saved_terms = {t.source: t for t in glossary.terms}
+    assert "그림자 병사" in saved_terms
+    assert "마력 측정기" in saved_terms
+    assert not saved_terms["그림자 병사"].reviewed
+    assert not saved_terms["마력 측정기"].reviewed
 
 
 def test_process_analysis_characters_and_relationships(
@@ -174,3 +169,55 @@ def test_regenerate_arc_summary(temp_project_dir: Path, mock_llm_client: MagicMo
     assert arc_file.exists()
     data = json.loads(arc_file.read_text(encoding="utf-8"))
     assert data["arc_summary"] == "New Arc 2 Summary"
+
+
+def test_process_analysis_character_updates(
+    temp_project_dir: Path, mock_llm_client: MagicMock
+) -> None:
+    analyzer = ChapterAnalyzer(
+        llm_client=mock_llm_client,
+        project_dir=temp_project_dir,
+    )
+
+    manager = GlossaryManager(project_dir=temp_project_dir)
+    initial_char = Character(
+        id="head_maid",
+        canonical_name="Head Maid",
+        aliases=[],
+        gender="female",
+        speech_style="Strict",
+        appearance="Woman in her 30s",
+        knows_identity=[],
+    )
+    manager.add_character(initial_char)
+
+    analysis = AnalysisResult(
+        summary="Head Maid's real name is revealed.",
+        character_updates=[
+            {
+                "id": "head_maid",
+                "canonical_name": "Eleanor",
+                "aliases": [
+                    {
+                        "source": "엘리너",
+                        "target": "Eleanor",
+                        "gender": "female",
+                        "context": "Real name",
+                        "alias_type": "name"
+                    }
+                ],
+                "knows_identity": ["sung_jinwoo"],
+                "speech_style": "Friendly",
+            }
+        ],
+    )
+
+    analyzer.process_analysis_result(chapter_number=1, analysis=analysis)
+
+    glossary = manager.load_glossary()
+    updated_char = next(c for c in glossary.characters if c.id == "head_maid")
+    assert updated_char.canonical_name == "Eleanor"
+    assert updated_char.speech_style == "Friendly"
+    assert "sung_jinwoo" in updated_char.knows_identity
+    assert len(updated_char.aliases) == 1
+    assert updated_char.aliases[0].target == "Eleanor"

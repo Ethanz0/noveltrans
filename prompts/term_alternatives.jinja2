@@ -1,0 +1,15 @@
+You are an expert web novel translator translating from {{ source_language_name | default('Korean') }} to English.
+Provide 3 excellent English translation alternatives for the following term.
+
+Source Term: {{ source_term }}
+Current Translation: {{ current_translation }}
+Category/Context: {{ category }}
+
+Ensure the alternatives capture the nuance and genre (web novel fantasy).
+Provide your response in JSON format matching this schema:
+```json
+{
+  "alternatives": ["Alt 1", "Alt 2", "Alt 3"]
+}
+```
+Do not include any markdown outside of the JSON block.
