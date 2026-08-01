@@ -121,8 +121,12 @@ class PromptRenderer:
             "source_language_name": src_lang_name,
         }
         if not use_structured_output:
-            from noveltrans.llm.protocols import AnalysisResult
-            context["json_schema"] = json.dumps(AnalysisResult.model_json_schema(), indent=2)
+            if kwargs.get("skip_glossary_update", False):
+                from noveltrans.llm.protocols import SummaryOnlyAnalysisResult
+                context["json_schema"] = json.dumps(SummaryOnlyAnalysisResult.model_json_schema(), indent=2)
+            else:
+                from noveltrans.llm.protocols import AnalysisResult
+                context["json_schema"] = json.dumps(AnalysisResult.model_json_schema(), indent=2)
 
         context.update(kwargs)
         return self.render("analyzer.jinja2", **context)

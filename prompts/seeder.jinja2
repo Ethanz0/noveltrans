@@ -8,8 +8,24 @@ Analyze the provided {{ source_language_name | default('Korean') }} sample chapt
 {% endfor %}
 
 === EXISTING GLOSSARY ===
-Existing Character Canonical Names: {{ existing_characters | join(', ') if existing_characters else 'None' }}
-Existing Glossary Term Sources: {{ existing_terms | join(', ') if existing_terms else 'None' }}
+(DO NOT extract these as new characters/terms if they appear in the chapter. Reuse their target names if applicable.)
+Existing Characters (with known Korean aliases):
+{% if existing_characters %}
+{% for char in existing_characters %}
+- {{ char }}
+{% endfor %}
+{% else %}
+None
+{% endif %}
+
+Existing Glossary Terms (Source -> Target):
+{% if existing_terms %}
+{% for term in existing_terms %}
+- {{ term }}
+{% endfor %}
+{% else %}
+None
+{% endif %}
 
 === TASK INSTRUCTIONS ===
 Extract and construct the initial project foundation in JSON format containing the following:

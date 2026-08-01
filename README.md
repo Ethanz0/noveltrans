@@ -69,8 +69,8 @@ noveltrans epub build --title "My Novel" --author "Author" --project ./my_novel
 | Command | Description |
 |---|---|
 | `noveltrans init <path> [--language ko\|ja\|zh]` | Scaffold a new translation project |
-| `noveltrans translate run [--chapters 1-5] [--force] [--dry-run]` | Translate chapters |
-| `noveltrans glossary seed [--chapters 1-10]` | Bootstrap glossary from raw chapters |
+| `noveltrans translate run [--chapters 1-5] [--force] [--dry-run] [--skip-glossary]` | Translate chapters |
+| `noveltrans glossary seed [--chapters 1-10] [--update-summaries]` | Bootstrap glossary from raw chapters |
 | `noveltrans glossary show` | Pretty-print the current glossary |
 | `noveltrans glossary review` | Interactively review newly extracted terms (LLM alternatives) |
 | `noveltrans style analyze [--chapters 1-10]` | Generate/update style guide |

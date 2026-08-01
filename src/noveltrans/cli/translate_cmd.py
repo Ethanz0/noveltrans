@@ -66,6 +66,14 @@ def translate_run(
             help="Render and save prompts without calling LLM APIs",
         ),
     ] = False,
+    skip_glossary: Annotated[
+        bool,
+        typer.Option(
+            "--skip-glossary",
+            "-s",
+            help="Skip extracting new terms and characters during analysis",
+        ),
+    ] = False,
     project: Annotated[
         Path,
         typer.Option(
@@ -88,6 +96,7 @@ def translate_run(
             chapter_numbers=ch_list,
             force=force,
             dry_run=dry_run,
+            skip_glossary=skip_glossary,
         )
         msg_prefix = (
             "[bold yellow]Dry-run completed[/]"

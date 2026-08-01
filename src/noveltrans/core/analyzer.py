@@ -193,9 +193,9 @@ class ChapterAnalyzer:
             )
 
         # 7. Check if arc update is triggered
-        event_triggered = any(e.triggers_arc_update for e in analysis.significant_events)
+        # event_triggered = any(e.triggers_arc_update for e in analysis.significant_events)
         interval_triggered = chapters_since_last_arc >= arc_fallback_interval
-        triggers_arc_update = event_triggered or interval_triggered
+        triggers_arc_update = interval_triggered  # Disabled LLM dynamic triggers, rely on interval
 
         logger.info(
             "analysis_processed",

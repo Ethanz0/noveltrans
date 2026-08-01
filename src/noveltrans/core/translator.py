@@ -21,8 +21,10 @@ from noveltrans.llm.protocols import AnalysisResult, TranslationResult
 from noveltrans.state.checkpoint import CheckpointManager
 from noveltrans.state.manifest import ManifestManager
 from noveltrans.state.models import ChapterManifestEntry, QAIssue
+from rich.console import Console
 
 logger = structlog.get_logger()
+console = Console()
 
 
 class TranslationPipeline:
@@ -200,6 +202,7 @@ class TranslationPipeline:
         source_text: str | None = None,
         force: bool = False,
         dry_run: bool = False,
+        skip_glossary: bool = False,
     ) -> ChapterManifestEntry:
         """Execute 14-step per-chapter translation process."""
         start_time = time.time()
@@ -270,6 +273,8 @@ class TranslationPipeline:
         # Step 6: Call LLM — TRANSLATION & Step 7: Parse translation response
         analyzer_prompt = ""
         try:
+            logger.info("starting_translation_llm", chapter_number=chapter_number)
+            console.print(f"  [cyan]>[/] Generating translation for chapter {chapter_number}...")
             raw_tr = self.llm_client.parse_translation(translator_prompt)
             if inspect.isawaitable(raw_tr):
                 tr_result: TranslationResult = await raw_tr
@@ -304,8 +309,15 @@ class TranslationPipeline:
         )
 
         # Step 10: Call LLM — ANALYSIS & Step 11: Process analysis results
-        existing_char_names = [c.canonical_name for c in glossary.characters]
-        existing_term_sources = [t.source for t in glossary.terms]
+        existing_char_names = []
+        for c in glossary.characters:
+            aliases = [a.source for a in c.aliases if a.source]
+            if aliases:
+                existing_char_names.append(f"{c.canonical_name} (Aliases: {', '.join(aliases)})")
+            else:
+                existing_char_names.append(c.canonical_name)
+
+        existing_term_sources = [f"{t.source} -> {t.target}" for t in glossary.terms]
 
         analyzer_prompt = self.prompt_renderer.render_analyzer(
             chapter_number=chapter_number,
@@ -314,9 +326,12 @@ class TranslationPipeline:
             existing_characters=existing_char_names,
             existing_terms=existing_term_sources,
             source_language=self.config.source_language,
+            skip_glossary_update=skip_glossary,
         )
 
         try:
+            logger.info("starting_analysis_llm", chapter_number=chapter_number)
+            console.print(f"  [cyan]>[/] Analyzing chapter {chapter_number} for summary and glossary updates...")
             raw_analysis = self.llm_client.parse_analysis(analyzer_prompt)
             if inspect.isawaitable(raw_analysis):
                 analysis_result: AnalysisResult = await raw_analysis
@@ -406,6 +421,7 @@ class TranslationPipeline:
         source_text: str | None = None,
         force: bool = False,
         dry_run: bool = False,
+        skip_glossary: bool = False,
     ) -> ChapterManifestEntry:
         """Synchronous wrapper for translate_chapter()."""
         return asyncio.run(
@@ -414,6 +430,7 @@ class TranslationPipeline:
                 source_text=source_text,
                 force=force,
                 dry_run=dry_run,
+                skip_glossary=skip_glossary,
             )
         )
 
@@ -422,6 +439,7 @@ class TranslationPipeline:
         chapter_numbers: list[int] | None = None,
         force: bool = False,
         dry_run: bool = False,
+        skip_glossary: bool = False,
     ) -> list[ChapterManifestEntry]:
         """Execute batch translation for multiple chapters."""
         if chapter_numbers is None:
@@ -450,7 +468,13 @@ class TranslationPipeline:
                 continue
 
             try:
-                entry = await self.translate_chapter(ch, force=force, dry_run=dry_run)
+                console.print(f"\n[bold magenta]Processing Chapter {ch}...[/]")
+                entry = await self.translate_chapter(
+                    ch, 
+                    force=force, 
+                    dry_run=dry_run, 
+                    skip_glossary=skip_glossary
+                )
                 entries.append(entry)
             except Exception as e:
                 logger.error("batch_translation_failed", chapter_number=ch, error=str(e))
@@ -463,6 +487,7 @@ class TranslationPipeline:
         chapter_numbers: list[int] | None = None,
         force: bool = False,
         dry_run: bool = False,
+        skip_glossary: bool = False,
     ) -> list[ChapterManifestEntry]:
         """Synchronous wrapper for translate_batch()."""
         return asyncio.run(
@@ -470,6 +495,7 @@ class TranslationPipeline:
                 chapter_numbers=chapter_numbers,
                 force=force,
                 dry_run=dry_run,
+                skip_glossary=skip_glossary,
             )
         )
 

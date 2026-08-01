@@ -53,6 +53,7 @@ class LLMClient:
             "model": self.settings.model_name,
             "temperature": self.settings.temperature,
             "messages": messages,
+            "max_tokens": 8192,
         }
         if response_format is not None:
             kwargs["response_format"] = response_format
@@ -85,26 +86,47 @@ class LLMClient:
             response_format=response_format,
         )
 
+    async def _execute_with_parse_retry(
+        self, parse_func: Any, prompt: str, system_prompt: str = ""
+    ) -> Any:
+        import structlog
+        logger = structlog.get_logger()
+        last_error = None
+        max_attempts = max(1, self.settings.max_retries + 1)
+        for attempt in range(max_attempts):
+            try:
+                raw = await self.complete(prompt, system_prompt=system_prompt)
+                return await parse_func(raw)
+            except Exception as e:
+                last_error = e
+                if attempt < max_attempts - 1:
+                    logger.warning("llm_parse_retry", attempt=attempt + 1, error=str(e))
+                    await asyncio.sleep(1)
+        raise last_error or Exception("Failed to parse LLM output")
+
     async def parse_translation(
         self, prompt: str, system_prompt: str = ""
     ) -> TranslationResult:
         """Execute translation LLM call and parse result."""
-        raw = await self.complete(prompt, system_prompt=system_prompt)
-        return await self.parser.parse_translation(raw)
+        return await self._execute_with_parse_retry(
+            self.parser.parse_translation, prompt, system_prompt
+        )
 
     async def parse_analysis(
         self, prompt: str, system_prompt: str = ""
     ) -> AnalysisResult:
         """Execute analysis LLM call and parse result."""
-        raw = await self.complete(prompt, system_prompt=system_prompt)
-        return await self.parser.parse_analysis(raw)
+        return await self._execute_with_parse_retry(
+            self.parser.parse_analysis, prompt, system_prompt
+        )
 
     async def parse_seed(
         self, prompt: str, system_prompt: str = ""
     ) -> SeedResult:
         """Execute seeding LLM call and parse result."""
-        raw = await self.complete(prompt, system_prompt=system_prompt)
-        return await self.parser.parse_seed(raw)
+        return await self._execute_with_parse_retry(
+            self.parser.parse_seed, prompt, system_prompt
+        )
 
     async def parse_term_alternatives(
         self, prompt: str, system_prompt: str = ""
@@ -112,8 +134,9 @@ class LLMClient:
         """Execute term alternatives LLM call and parse result."""
         from noveltrans.llm.protocols import TermAlternativesResult
         
-        raw = await self.complete(prompt, system_prompt=system_prompt)
-        return await self.parser.parse_term_alternatives(raw)
+        return await self._execute_with_parse_retry(
+            self.parser.parse_term_alternatives, prompt, system_prompt
+        )
 
 
 OpenAIClient = LLMClient

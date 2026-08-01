@@ -43,6 +43,7 @@ class GlossarySeeder:
         self,
         chapters_text: list[str] | str,
         save_to_project: bool = True,
+        update_summaries: bool = False,
     ) -> SeedResult:
         """Run LLM seed call on initial chapters to extract glossary and story/arc summaries."""
         if isinstance(chapters_text, list):
@@ -60,8 +61,15 @@ class GlossarySeeder:
                     from noveltrans.glossary.manager import GlossaryManager
                     mgr = GlossaryManager(self.project_dir)
                     gloss = mgr.load_glossary()
-                    existing_chars = [c.canonical_name for c in gloss.characters]
-                    existing_terms = [t.source for t in gloss.terms]
+                    existing_chars = []
+                    for c in gloss.characters:
+                        aliases = [a.source for a in c.aliases if a.source]
+                        if aliases:
+                            existing_chars.append(f"{c.canonical_name} (Aliases: {', '.join(aliases)})")
+                        else:
+                            existing_chars.append(c.canonical_name)
+
+                    existing_terms = [f"{t.source} -> {t.target}" for t in gloss.terms]
                 except Exception:
                     pass
 
@@ -95,7 +103,7 @@ class GlossarySeeder:
         )
 
         if save_to_project and self.project_dir is not None:
-            self.save_seed_result(seed_result)
+            self.save_seed_result(seed_result, update_summaries=update_summaries)
 
         return seed_result
 
@@ -103,14 +111,16 @@ class GlossarySeeder:
         self,
         chapters_text: list[str] | str,
         save_to_project: bool = True,
+        update_summaries: bool = False,
     ) -> SeedResult:
         """Synchronous wrapper for seed()."""
-        return asyncio.run(self.seed(chapters_text, save_to_project=save_to_project))
+        return asyncio.run(self.seed(chapters_text, save_to_project=save_to_project, update_summaries=update_summaries))
 
     def seed_from_files(
         self,
         chapter_paths: Sequence[Path | str],
         save_to_project: bool = True,
+        update_summaries: bool = False,
     ) -> SeedResult:
         """Load chapters from file paths and run seeding."""
         texts: list[str] = []
@@ -118,9 +128,9 @@ class GlossarySeeder:
             p = Path(path)
             if p.exists():
                 texts.append(p.read_text(encoding="utf-8"))
-        return self.seed_sync(texts, save_to_project=save_to_project)
+        return self.seed_sync(texts, save_to_project=save_to_project, update_summaries=update_summaries)
 
-    def save_seed_result(self, seed_result: SeedResult) -> None:
+    def save_seed_result(self, seed_result: SeedResult, update_summaries: bool = False) -> None:
         """Persist SeedResult data to project's glossary.json and state/ summaries."""
         if self.project_dir is None:
             logger.warning("save_seed_result_skipped_no_project_dir")
@@ -220,16 +230,18 @@ class GlossarySeeder:
 
         if seed_result.story_summary:
             story_sum_file = state_dir / "story_summary.json"
-            story_data = {"story_summary": seed_result.story_summary}
-            story_sum_file.write_text(
-                json.dumps(story_data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-            logger.info("story_summary_saved", path=str(story_sum_file))
+            if update_summaries or not story_sum_file.exists():
+                story_data = {"story_summary": seed_result.story_summary}
+                story_sum_file.write_text(
+                    json.dumps(story_data, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+                logger.info("story_summary_saved", path=str(story_sum_file))
 
         if seed_result.arc_summary:
             arc_sum_file = state_dir / "arc_summary.json"
-            arc_data = {"arc_summary": seed_result.arc_summary}
-            arc_sum_file.write_text(
-                json.dumps(arc_data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-            logger.info("arc_summary_saved", path=str(arc_sum_file))
+            if update_summaries or not arc_sum_file.exists():
+                arc_data = {"arc_summary": seed_result.arc_summary}
+                arc_sum_file.write_text(
+                    json.dumps(arc_data, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+                logger.info("arc_summary_saved", path=str(arc_sum_file))

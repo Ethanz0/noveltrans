@@ -8,14 +8,31 @@ Analyze the following translated chapter alongside its source {{ source_language
 {{ translated_text }}
 
 === EXISTING GLOSSARY ===
-Existing Character Canonical Names: {{ existing_characters | join(', ') if existing_characters else 'None' }}
-Existing Glossary Term Sources: {{ existing_terms | join(', ') if existing_terms else 'None' }}
+(DO NOT extract these as new characters/terms if they appear in the chapter. Reuse their target names if applicable.)
+Existing Characters (with known Korean aliases):
+{% if existing_characters %}
+{% for char in existing_characters %}
+- {{ char }}
+{% endfor %}
+{% else %}
+None
+{% endif %}
+
+Existing Glossary Terms (Source -> Target):
+{% if existing_terms %}
+{% for term in existing_terms %}
+- {{ term }}
+{% endfor %}
+{% else %}
+None
+{% endif %}
 
 === TASK INSTRUCTIONS ===
 Provide a comprehensive post-translation analysis in JSON format containing the following:
 1. `summary`: Concise 2-4 sentence summary of key plot developments in this chapter.
 2. `key_events`: List of key plot points.
 3. `characters_present`: Characters who appeared in this chapter.
+{% if not skip_glossary_update %}
 4. `new_characters`: Newly introduced characters needing glossary entries (canonical_name, aliases, gender, speech_style, appearance, notes). IMPORTANT: In the aliases list, you must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name").
 5. `new_terms`: Newly introduced terms needing glossary entries (source, target, category, notes, confidence). Only extract significant terms (e.g., important artifacts, major factions, key locations) that are highly likely to appear again in the future. Do not extract one-off terms or generic items.
 6. `character_updates`: Updates to existing character identity knowledge, aliases, or traits.
@@ -23,6 +40,10 @@ Provide a comprehensive post-translation analysis in JSON format containing the 
 8. `relationship_updates`: New or modified relationships between characters.
 9. `significant_events`: Major events with `event_type` ("identity_reveal", "power_reveal", "relationship_change", "new_location", "major_conflict", "arc_transition"), `description`, `affects_characters`, and `triggers_arc_update` (boolean).
 10. `qa_flags`: List of potential translation issues (untranslated {{ source_language_name | default('Korean') }}, consistency issues, name mismatches).
+{% else %}
+4. `significant_events`: Major events with `event_type` ("identity_reveal", "power_reveal", "relationship_change", "new_location", "major_conflict", "arc_transition"), `description`, `affects_characters`, and `triggers_arc_update` (boolean).
+5. `qa_flags`: List of potential translation issues (untranslated {{ source_language_name | default('Korean') }}, consistency issues, name mismatches).
+{% endif %}
 {% if source_language == 'zh' %}
 Note for Chinese: Ensure consistency in handling Simplified vs Traditional Chinese terminology and naming.
 {% endif %}

@@ -97,11 +97,7 @@ class GlossaryMatcher:
                     if matched:
                         break
 
-                    if (
-                        len(cand) >= 2
-                        and fuzz.partial_ratio(cand, text) >= self.similarity_threshold
-                    ):
-                        matched_char_ids.add(char.id)
+                    if matched:
                         break
 
             # Check unmatched terms
@@ -124,12 +120,6 @@ class GlossaryMatcher:
                         break
                 if matched:
                     continue
-
-                if (
-                    len(cand) >= 2
-                    and fuzz.partial_ratio(cand, text) >= self.similarity_threshold
-                ):
-                    matched_term_sources.add(term.source)
 
         # Construct matched subset
         matched_characters = [c for c in target_glossary.characters if c.id in matched_char_ids]

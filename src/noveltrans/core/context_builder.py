@@ -67,9 +67,9 @@ class ContextBuilder:
             if any(c in matched_char_keys for c in rel.characters):
                 matched_relationships.append(rel)
 
-        # Slice recent summaries and chapters according to configuration
+        # Slice recent summaries to bridge the gap from the last arc summary
         all_summaries = chapter_summaries or []
-        n_summaries = self.config.context_recent_summaries
+        n_summaries = max(self.config.context_recent_summaries, self.config.arc_summary_fallback_interval)
         recent_sums = all_summaries[-n_summaries:] if all_summaries else []
 
         all_chapters = recent_chapters or []

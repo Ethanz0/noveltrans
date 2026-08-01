@@ -38,6 +38,13 @@ def glossary_seed(
             help="Path to project root directory",
         ),
     ] = Path("."),
+    update_summaries: Annotated[
+        bool,
+        typer.Option(
+            "--update-summaries",
+            help="Overwrite story and arc summaries even if they already exist",
+        ),
+    ] = False,
 ) -> None:
     """Extract initial glossary terms and story summaries from source chapters."""
     project_dir = project.resolve()
@@ -66,7 +73,7 @@ def glossary_seed(
 
     try:
         seeder = GlossarySeeder(project_dir=project_dir)
-        seeder.seed_from_files(target_files, save_to_project=True)
+        seeder.seed_from_files(target_files, save_to_project=True, update_summaries=update_summaries)
         console.print(
             f"[bold green]Successfully seeded glossary from {len(target_files)} chapter(s).[/]"
         )

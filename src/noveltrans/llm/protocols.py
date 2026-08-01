@@ -55,6 +55,38 @@ class AnalysisResult(BaseModel):
         return data
 
 
+class SummaryOnlyAnalysisResult(BaseModel):
+    """Lighter result schema for analysis when glossary extraction is skipped."""
+
+    summary: str
+    key_events: list[str] = Field(default_factory=list)
+    characters_present: list[str] = Field(default_factory=list)
+    significant_events: list[SignificantEvent] = Field(default_factory=list)
+    qa_flags: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def clean_lists(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for field in ["key_events", "characters_present", "qa_flags"]:
+                val = data.get(field)
+                if isinstance(val, list):
+                    cleaned = []
+                    for item in val:
+                        if isinstance(item, dict):
+                            parts = []
+                            for k in ["event", "name", "issue_type", "description", "text"]:
+                                if k in item and item[k]:
+                                    parts.append(str(item[k]))
+                            if not parts:
+                                parts.append(json.dumps(item, ensure_ascii=False))
+                            cleaned.append(": ".join(parts))
+                        elif item is not None:
+                            cleaned.append(str(item))
+                    data[field] = cleaned
+        return data
+
+
 class SeedResult(BaseModel):
     """Result from the initial glossary and story seeding LLM step."""
 

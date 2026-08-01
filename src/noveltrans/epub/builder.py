@@ -177,6 +177,11 @@ hr {
                 body_elements.append("<hr/>")
                 continue
 
+            is_blockquote = False
+            if p_clean.startswith(">"):
+                is_blockquote = True
+                p_clean = re.sub(r"^>\s?", "", p_clean, flags=re.MULTILINE)
+
             escaped = html.escape(p_clean)
 
             escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
@@ -187,7 +192,13 @@ hr {
 
             escaped = re.sub(r"`(.+?)`", r"<code>\1</code>", escaped)
 
-            body_elements.append(f"<p>{escaped}</p>")
+            # Web novels treat single newlines as hard breaks
+            escaped = escaped.replace("\n", "<br/>\n")
+
+            if is_blockquote:
+                body_elements.append(f"<blockquote>{escaped}</blockquote>")
+            else:
+                body_elements.append(f"<p>{escaped}</p>")
 
         inner_html = "\n".join(body_elements)
         return (
