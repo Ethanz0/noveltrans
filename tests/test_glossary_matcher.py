@@ -12,7 +12,7 @@ from noveltrans.glossary.models import (
 
 @pytest.fixture
 def matcher() -> GlossaryMatcher:
-    return GlossaryMatcher(similarity_threshold=85.0)
+    return GlossaryMatcher()
 
 
 # ============================================================================
@@ -47,28 +47,7 @@ def test_exact_term_match(matcher: GlossaryMatcher, sample_glossary: Glossary) -
     assert "마수" in sources
 
 
-def test_fuzzy_fallback_match(matcher: GlossaryMatcher) -> None:
-    """Tier 1: Test RapidFuzz fallback matching when term has slight variation/typo."""
-    char = Character(
-        id="test_char",
-        canonical_name="박희진",
-        aliases=[],
-        gender="female",
-        speech_style="polite",
-    )
-    term = GlossaryTerm(
-        source="마력탄",
-        target="Magic Bullet",
-        category="skill",
-        confidence=0.9,
-    )
-    glossary = Glossary(characters=[char], terms=[term])
 
-    # "마력탄" vs "마력탑" or slight variation
-    text = "그녀는 마력탄을 발사했다."
-    _, matched_terms = matcher.match_terms(text, glossary)
-    assert len(matched_terms) == 1
-    assert matched_terms[0].source == "마력탄"
 
 
 def test_always_include_character(matcher: GlossaryMatcher, sample_glossary: Glossary) -> None:
@@ -123,14 +102,7 @@ def test_alias_gender_and_identity_preservation(
     assert any(a.alias_type == "nickname" and a.target == "Dancer" for a in haein.aliases)
 
 
-def test_fuzzy_below_threshold_ignored(matcher: GlossaryMatcher) -> None:
-    """Tier 2: Verify terms with similarity below 85% threshold are NOT matched."""
-    term = GlossaryTerm(source="아티팩트", target="Artifact", category="item")
-    glossary = Glossary(terms=[term])
 
-    text = "완전히 다른 단어 자동차"
-    _, matched_terms = matcher.match_terms(text, glossary)
-    assert len(matched_terms) == 0
 
 
 def test_duplicate_matches_deduplicated(
@@ -144,10 +116,10 @@ def test_duplicate_matches_deduplicated(
     assert jinwoo_count == 1
 
 
-def test_combined_exact_fuzzy_always_include(
+def test_combined_exact_always_include(
     matcher: GlossaryMatcher, sample_glossary: Glossary
 ) -> None:
-    """Tier 2: Combined test of exact, fuzzy, and always_include in one pass."""
+    """Tier 2: Combined test of exact match and always_include in one pass."""
     # Jinwoo is always_include=True
     # Hae-in is exact match in text
     text = "차해인은 무희로서 아름답게 검을 휘둘렀다."

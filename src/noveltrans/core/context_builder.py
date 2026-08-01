@@ -1,5 +1,6 @@
 """4-tier context assembly builder for novel translation pipeline."""
 
+from typing import Any
 from pydantic import BaseModel, Field
 
 from noveltrans.config.settings import ProjectConfig
@@ -16,8 +17,8 @@ class AssembledContext(BaseModel):
     tier1_relationships: list[Relationship] = Field(default_factory=list)
     tier2_story_summary: str = ""
     tier3_arc_summary: str = ""
-    tier3_recent_summaries: list[str] = Field(default_factory=list)
-    tier4_recent_chapters: list[str] = Field(default_factory=list)
+    tier3_recent_summaries: list[Any] = Field(default_factory=list)
+    tier4_recent_chapters: list[Any] = Field(default_factory=list)
 
 
 class ContextBuilder:
@@ -39,8 +40,8 @@ class ContextBuilder:
         style_guide: str = "",
         story_summary: str = "",
         arc_summary: str = "",
-        chapter_summaries: list[str] | None = None,
-        recent_chapters: list[str] | None = None,
+        chapter_summaries: list[Any] | None = None,
+        recent_chapters: list[Any] | None = None,
     ) -> AssembledContext:
         """Assembles 4-tier context for chapter translation.
 

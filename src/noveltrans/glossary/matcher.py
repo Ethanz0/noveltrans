@@ -1,9 +1,6 @@
-"""Glossary matcher using Aho-Corasick exact search and rapidfuzz fallback."""
-
-import re
+"""Glossary matcher using Aho-Corasick exact search."""
 
 import ahocorasick_rs
-from rapidfuzz import fuzz
 
 from noveltrans.glossary.models import Character, Glossary, GlossaryTerm, Relationship
 
@@ -14,11 +11,9 @@ class GlossaryMatcher:
     def __init__(
         self,
         glossary: Glossary | None = None,
-        similarity_threshold: float = 85.0,
     ) -> None:
-        """Initialize GlossaryMatcher with optional glossary and fuzzy similarity threshold."""
+        """Initialize GlossaryMatcher with optional glossary."""
         self.glossary = glossary
-        self.similarity_threshold = similarity_threshold
 
     def match(self, text: str, glossary: Glossary | None = None) -> Glossary:
         """Match characters, terms, and relationships in text.
@@ -70,56 +65,7 @@ class GlossaryMatcher:
                         for term in pattern_to_terms[found_str]:
                             matched_term_sources.add(term.source)
 
-        # Step 3: Fuzzy fallback matching for unmatched terms and characters
-        if text:
-            raw_words = text.split()
-            tokens = list(dict.fromkeys(raw_words))
-            cleaned_tokens = list(dict.fromkeys(re.findall(r"[\w\uAC00-\uD7A3]+", text)))
 
-            # Check unmatched characters
-            for char in target_glossary.characters:
-                if char.id in matched_char_ids:
-                    continue
-
-                candidates = [char.canonical_name] + [a.source for a in char.aliases if a.source]
-                candidates = [c for c in candidates if c]
-
-                for cand in candidates:
-                    matched = False
-                    for tok in tokens + cleaned_tokens:
-                        if (
-                            fuzz.ratio(cand, tok) >= self.similarity_threshold
-                            or fuzz.partial_ratio(cand, tok) >= self.similarity_threshold
-                        ):
-                            matched_char_ids.add(char.id)
-                            matched = True
-                            break
-                    if matched:
-                        break
-
-                    if matched:
-                        break
-
-            # Check unmatched terms
-            for term in target_glossary.terms:
-                if term.source in matched_term_sources:
-                    continue
-
-                cand = term.source
-                if not cand:
-                    continue
-
-                matched = False
-                for tok in tokens + cleaned_tokens:
-                    if (
-                        fuzz.ratio(cand, tok) >= self.similarity_threshold
-                        or fuzz.partial_ratio(cand, tok) >= self.similarity_threshold
-                    ):
-                        matched_term_sources.add(term.source)
-                        matched = True
-                        break
-                if matched:
-                    continue
 
         # Construct matched subset
         matched_characters = [c for c in target_glossary.characters if c.id in matched_char_ids]
@@ -144,7 +90,7 @@ class GlossaryMatcher:
     def match_terms(
         self, text: str, glossary: Glossary | None = None
     ) -> tuple[list[Character], list[GlossaryTerm]]:
-        """Match characters and terms in text using exact and fuzzy matching.
+        """Match characters and terms in text using exact matching.
 
         Returns a tuple of (matched_characters, matched_terms).
         """

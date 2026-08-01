@@ -141,12 +141,12 @@ class TranslationPipeline:
 
     def _load_context_inputs(
         self, current_chapter: int
-    ) -> tuple[str, str, str, list[str], list[str]]:
+    ) -> tuple[str, str, str, list[dict[str, Any]], list[dict[str, Any]]]:
         style_guide = ""
         story_summary = ""
         arc_summary = ""
-        chapter_summaries: list[str] = []
-        recent_chapters: list[str] = []
+        chapter_summaries: list[dict[str, Any]] = []
+        recent_chapters: list[dict[str, Any]] = []
 
         if self.project_dir:
             style_path = self.project_dir / self.config.style_guide_path
@@ -177,7 +177,10 @@ class TranslationPipeline:
                         data = json.loads(sf.read_text(encoding="utf-8"))
                         ch_num = data.get("chapter_number", 0)
                         if ch_num < current_chapter and "summary" in data:
-                            chapter_summaries.append(str(data["summary"]))
+                            chapter_summaries.append({
+                                "chapter_number": ch_num,
+                                "summary": str(data["summary"])
+                            })
                     except Exception:
                         pass
 
@@ -190,7 +193,10 @@ class TranslationPipeline:
                         if num_str:
                             ch_num = int(num_str)
                             if ch_num < current_chapter:
-                                recent_chapters.append(tf.read_text(encoding="utf-8"))
+                                recent_chapters.append({
+                                    "chapter_number": ch_num,
+                                    "text": tf.read_text(encoding="utf-8")
+                                })
                     except Exception:
                         pass
 

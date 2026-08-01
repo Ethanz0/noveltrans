@@ -52,7 +52,7 @@ Current Arc Summary:
 {% if recent_summaries %}
 Recent Chapter Summaries:
 {% for summary in recent_summaries %}
-- Chapter {{ summary.chapter_number if summary.chapter_number else loop.index }}: {{ summary.summary if summary.summary else summary }}
+- Chapter {{ summary.summary if summary.summary else summary }}
 {% endfor %}
 {% endif %}
 

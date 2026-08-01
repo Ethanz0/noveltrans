@@ -17,6 +17,7 @@ def test_context_builder_4_tier_assembly() -> None:
         title="Test Novel",
         context_recent_summaries=3,
         context_recent_chapters=2,
+        arc_summary_fallback_interval=3,
     )
     builder = ContextBuilder(config=config)
 
