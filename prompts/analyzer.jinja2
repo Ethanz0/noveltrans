@@ -37,7 +37,7 @@ Provide a comprehensive post-translation analysis in JSON format containing the 
 5. `new_terms`: Newly introduced terms needing glossary entries (source, target, category, notes, confidence). Only extract significant terms (e.g., important artifacts, major factions, key locations) that are highly likely to appear again in the future. Do not extract one-off terms or generic items.
 6. `character_updates`: Updates to existing character identity knowledge, aliases, or traits.
 7. `term_updates`: Updates to existing general terms if significant new lore or context is revealed (source, category, notes).
-8. `relationship_updates`: New or modified relationships between characters.
+8. `relationship_updates`: Updates to shifting character relationships. Keep descriptions broad, focusing strictly on their overarching dynamic, power balance, and interaction tone (e.g., "Hostile competitors", "Master and secretly protective servant"). Do NOT summarize specific plot events.
 9. `significant_events`: Major events with `event_type` ("identity_reveal", "power_reveal", "relationship_change", "new_location", "major_conflict", "arc_transition"), `description`, `affects_characters`, and `triggers_arc_update` (boolean).
 10. `qa_flags`: List of potential translation issues (untranslated {{ source_language_name | default('Korean') }}, consistency issues, name mismatches).
 {% else %}

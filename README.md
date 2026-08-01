@@ -6,7 +6,7 @@ A production-quality Python CLI tool for high-quality AI-powered web novel trans
 
 - **Multi-tier persistent context** — 4-tier context system (style guide → story summary → arc summary → recent chapters) ensures coherent translation across an entire novel
 - **Enriched character modeling** — Per-alias gender tracking, `knows_identity` for pronoun-aware translation, relationship graphs, and `always_include` for major characters
-- **High-performance glossary matching** — Aho-Corasick O(N) exact matching + RapidFuzz fuzzy fallback (85% threshold) for morphological variants
+- **High-performance glossary matching** — Aho-Corasick O(N) exact matching
 - **CJK multi-language support** — Korean (`ko`), Japanese (`ja`), Chinese (`zh`) with language-specific honorific policies and QA detection
 - **EPUB3 compilation** — Styled ebook output with metadata, TOC, and CSS. Supports partial chapter builds
 - **Robust state management** — Checkpoint resume, glossary snapshots per chapter, prompt archiving, force-retranslation

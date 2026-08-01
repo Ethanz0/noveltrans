@@ -49,7 +49,7 @@
 | Config | `pydantic-settings` | Environment variable loading with `.env` layering |
 | LLM client | `openai` (async) | OpenAI-compatible API calls |
 | Templates | `jinja2` | Prompt template rendering |
-| Text matching | `ahocorasick-rs` + `rapidfuzz` | O(N) exact matching + fuzzy fallback |
+| Text matching | `ahocorasick-rs` | O(N) exact matching |
 | EPUB | `ebooklib` | EPUB3 compilation |
 | Logging | `structlog` | Structured logging with Rich console output |
 | Testing | `pytest` + `pytest-asyncio` | Unit and integration tests |
@@ -122,7 +122,7 @@ noveltrans/
 └── tests/                          # Test suite (3,745 lines across 17 files, 169 tests)
     ├── conftest.py                 # Central fixture hub (433 lines)
     ├── test_cli.py                 # CLI integration tests (851 lines, 55 tests)
-    ├── test_glossary_matcher.py    # Aho-Corasick + fuzzy matching tests
+    ├── test_glossary_matcher.py    # Aho-Corasick matching tests
     ├── test_context_builder.py     # 4-tier assembly tests
     ├── test_checkpoint.py          # Checkpoint save/load/resume tests
     ├── test_manifest.py            # Manifest tracking tests
@@ -422,8 +422,8 @@ All 6 templates live in `prompts/` and are copied to each project on `init`. Use
 | Command | Description | Key Options |
 |---|---|---|
 | `noveltrans init <path>` | Scaffold a new translation project | `--language ko\|ja\|zh` |
-| `noveltrans translate run` | Translate chapters | `--chapters`, `--force`, `--dry-run`, `--project` |
-| `noveltrans glossary seed` | Bootstrap glossary from raw chapters | `--chapters`, `--project` |
+| `noveltrans translate run` | Translate chapters | `--chapters`, `--force`, `--dry-run`, `--skip-glossary`, `--project` |
+| `noveltrans glossary seed` | Bootstrap glossary from raw chapters | `--chapters`, `--update-summaries`, `--project` |
 | `noveltrans glossary show` | Pretty-print glossary | `--project` |
 | `noveltrans glossary review` | Interactively review newly extracted terms (LLM alternatives) | `--project`, `--skip-llm` |
 | `noveltrans style analyze` | Generate/update style guide | `--chapters`, `--project` |
@@ -436,17 +436,12 @@ All 6 templates live in `prompts/` and are copied to each project on `init`. Use
 
 ## Glossary Matching Engine
 
-`GlossaryMatcher` uses a two-stage approach:
+`GlossaryMatcher` uses a single-stage high-performance exact matching approach:
 
-### Stage 1: Aho-Corasick Exact Matching
+### Aho-Corasick Exact Matching
 - Builds an automaton from all glossary source terms (character aliases + term sources)
 - Scans chapter text in **O(N)** time
 - Returns exact substring matches
-
-### Stage 2: RapidFuzz Fuzzy Fallback
-- For terms not found by exact match, checks fuzzy ratio against all glossary terms
-- Threshold: **85% similarity** (configurable via `similarity_threshold`)
-- Catches Korean text morphological variants and typos
 
 ### Always-Include Injection
 - Characters with `always_include=True` are always injected into context regardless of whether they appear in the current chapter text
@@ -541,7 +536,7 @@ All language-specific logic is parameterized by `source_language` in `project.js
 
 | Module | Test File | Tests | Key Coverage |
 |---|---|---|---|
-| Glossary matching | `test_glossary_matcher.py` | 13 | Aho-Corasick, fuzzy fallback, always_include, deduplication |
+| Glossary matching | `test_glossary_matcher.py` | 10 | Aho-Corasick, always_include, deduplication |
 | Glossary CRUD | `test_glossary_manager.py` | 2 | Save/load roundtrip, pending terms approval |
 | Context builder | `test_context_builder.py` | 3 | 4-tier assembly, always_include injection |
 | Checkpoint | `test_checkpoint.py` | 13 | Save/load, resume, force skip, corruption recovery |

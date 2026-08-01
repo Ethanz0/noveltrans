@@ -31,7 +31,7 @@ None
 Extract and construct the initial project foundation in JSON format containing the following:
 1. `characters`: List of major and recurring characters (canonical_name, aliases with source/target/gender/context/alias_type, gender, speech_style, appearance, always_include, notes). IMPORTANT: You must include the character's original-language full name as the first alias (e.g., source: "데이지 파거", target: "Daisy Fager", gender: "Female", context: "Full name", alias_type: "name"). If the character is already in the Existing Character Canonical Names list, make sure to reuse the same canonical name and focus on extracting new aliases or adding to their notes.
 2. `terms`: Key proper nouns, places, techniques, organizations, titles, and items (source, target, category, notes, confidence). Only extract significant terms that are highly likely to appear again in the future. Do not extract one-off terms or generic items. If the term is already in the Existing Glossary Term Sources list, reuse the same source and only include it if you are adding significant new notes or context.
-3. `relationships`: Major character relationships (characters, description).
+3. `relationships`: Major character relationships (characters, description). Keep descriptions broad, focusing strictly on their overarching dynamic, power balance, and interaction tone (e.g., "Hostile competitors", "Master and secretly protective servant"). Do NOT summarize specific plot events.
 4. `story_summary`: High-level summary of the overall premise and starting scenario.
 5. `arc_summary`: Summary of the opening story arc.
 {% if source_language == 'zh' %}

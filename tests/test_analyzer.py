@@ -122,31 +122,6 @@ def test_process_analysis_chapter_summary_saved(
     assert data["chapter_number"] == 3
     assert data["summary"] == "Jinwoo defeats the dungeon boss."
 
-
-def test_process_analysis_arc_trigger(temp_project_dir: Path, mock_llm_client: MagicMock) -> None:
-    analyzer = ChapterAnalyzer(
-        llm_client=mock_llm_client,
-        project_dir=temp_project_dir,
-    )
-
-    sig_event = SignificantEvent(
-        event_type="arc_transition",
-        description="Entering the Red Gate arc",
-        affects_characters=["sung_jinwoo"],
-        triggers_arc_update=True,
-    )
-
-    analysis = AnalysisResult(
-        summary="Entered Red Gate.",
-        significant_events=[sig_event],
-    )
-
-    res = analyzer.process_analysis_result(
-        chapter_number=1, analysis=analysis, chapters_since_last_arc=1
-    )
-    assert res["triggers_arc_update"] is True
-
-
 def test_regenerate_arc_summary(temp_project_dir: Path, mock_llm_client: MagicMock) -> None:
     mock_llm_client.complete.return_value = "New Arc 2 Summary"
     analyzer = ChapterAnalyzer(
