@@ -42,6 +42,7 @@ class LLMClient:
         prompt: str,
         system_prompt: str = "",
         response_format: Any = None,
+        model_name: str | None = None,
     ) -> str:
         """Execute completion call with exponential backoff retry logic."""
         messages: list[dict[str, str]] = []
@@ -50,7 +51,7 @@ class LLMClient:
         messages.append({"role": "user", "content": prompt})
 
         kwargs: dict[str, Any] = {
-            "model": self.settings.model_name,
+            "model": model_name or self.settings.model_name,
             "temperature": self.settings.temperature,
             "messages": messages,
             "max_tokens": 8192,
@@ -80,14 +81,16 @@ class LLMClient:
         """Generate raw completion string."""
         system_prompt = cast("str", kwargs.pop("system_prompt", ""))
         response_format = kwargs.pop("response_format", None)
+        model_name = kwargs.pop("model_name", None)
         return await self.complete(
             prompt,
             system_prompt=system_prompt,
             response_format=response_format,
+            model_name=model_name,
         )
 
     async def _execute_with_parse_retry(
-        self, parse_func: Any, prompt: str, system_prompt: str = ""
+        self, parse_func: Any, prompt: str, system_prompt: str = "", model_name: str | None = None
     ) -> Any:
         import structlog
         logger = structlog.get_logger()
@@ -95,7 +98,7 @@ class LLMClient:
         max_attempts = max(1, self.settings.max_retries + 1)
         for attempt in range(max_attempts):
             try:
-                raw = await self.complete(prompt, system_prompt=system_prompt)
+                raw = await self.complete(prompt, system_prompt=system_prompt, model_name=model_name)
                 return await parse_func(raw)
             except Exception as e:
                 last_error = e
@@ -116,8 +119,9 @@ class LLMClient:
         self, prompt: str, system_prompt: str = ""
     ) -> AnalysisResult:
         """Execute analysis LLM call and parse result."""
+        model_name = self.settings.analyzer_model_name or self.settings.model_name
         return await self._execute_with_parse_retry(
-            self.parser.parse_analysis, prompt, system_prompt
+            self.parser.parse_analysis, prompt, system_prompt, model_name=model_name
         )
 
     async def parse_seed(

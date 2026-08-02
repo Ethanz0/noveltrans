@@ -42,6 +42,7 @@ class EnvSettings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     model_name: str = "gemini-2.5-pro"
+    analyzer_model_name: str | None = None
     temperature: float = 0.3
     max_retries: int = 3
     use_structured_output: bool = True
