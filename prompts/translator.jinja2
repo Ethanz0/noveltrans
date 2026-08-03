@@ -21,6 +21,7 @@ Characters in this chapter:
   {% if char.knows_identity %}
   Knows Identity Of: {{ char.knows_identity | join(', ') }}
   {% endif %}
+
 {% endfor %}
 {% endif %}
 
@@ -28,6 +29,7 @@ Characters in this chapter:
 Glossary Terms:
 {% for term in matched_terms %}
 - "{{ term.source }}" -> "{{ term.target }}" [Category: {{ term.category }}]{% if term.notes %} (Notes: {{ term.notes }}){% endif %}
+
 {% endfor %}
 {% endif %}
 
